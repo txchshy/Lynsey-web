@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=600, initial-scale=1.0, minimum-scale=0.5, maximum-scale=3.0, user-scalable=yes">
+    <title>登录 - Leviathan</title>
+    <style>
+        :root { --bg: #031842; --card: rgba(10,36,99,0.7); --blue: #00f2fe; --purple: #7c3aed; --text: #e0e6ff; --sub: #8b9cc7; --border: rgba(0,242,254,0.2); --danger: #ff4d4f; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:linear-gradient(135deg,#031842,#0a2463,#0d1b4a); min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--text); }
+        .login-box { width:400px; max-width:90vw; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:40px 32px; backdrop-filter:blur(12px); }
+        .login-title { text-align:center; margin-bottom:28px; }
+        .login-title h1 { font-size:22px; color:var(--blue); text-shadow:0 0 8px rgba(0,242,254,0.3); }
+        .login-title p { font-size:12px; color:var(--sub); margin-top:6px; }
+        .tabs { display:flex; gap:0; margin-bottom:24px; border-radius:8px; overflow:hidden; border:1px solid var(--border); }
+        .tab { flex:1; padding:10px; text-align:center; font-size:14px; cursor:pointer; background:transparent; color:var(--sub); border:none; transition:all 0.3s; }
+        .tab.active { background:rgba(124,58,237,0.3); color:var(--blue); font-weight:600; }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; font-size:13px; color:var(--sub); margin-bottom:6px; }
+        .form-group input { width:100%; padding:10px 14px; background:rgba(0,20,60,0.6); border:1px solid rgba(0,195,255,0.25); border-radius:8px; color:var(--text); font-size:14px; outline:none; transition:border-color 0.3s; }
+        .form-group input:focus { border-color:var(--blue); box-shadow:0 0 8px rgba(0,242,254,0.15); }
+        .btn-primary { width:100%; padding:12px; background:linear-gradient(135deg,var(--purple),#4f46e5); border:1px solid rgba(124,58,237,0.6); border-radius:10px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all 0.3s; margin-top:8px; }
+        .btn-primary:hover { box-shadow:0 0 24px rgba(124,58,237,0.5); transform:translateY(-1px); }
+        .btn-guest { width:100%; padding:10px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--sub); font-size:13px; cursor:pointer; margin-top:12px; transition:all 0.3s; }
+        .btn-guest:hover { border-color:var(--blue); color:var(--blue); }
+        .msg { text-align:center; font-size:13px; margin-top:12px; min-height:20px; }
+        .msg.error { color:var(--danger); }
+        .msg.success { color:#52c41a; }
+        .divider { text-align:center; font-size:12px; color:var(--sub); margin:16px 0; position:relative; }
+        .divider::before,.divider::after { content:''; position:absolute; top:50%; width:35%; height:1px; background:var(--border); }
+        .divider::before { left:0; }
+        .divider::after { right:0; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="login-title">
+            <h1>Leviathan</h1>
+            <p>餐饮全链路决策系统</p>
+        </div>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('login')">登录</button>
+            <button class="tab" onclick="switchTab('register')">注册</button>
+        </div>
+        <div id="login-form">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="login-username" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="login-password" placeholder="请输入密码">
+            </div>
+            <button class="btn-primary" onclick="doLogin()">登录</button>
+        </div>
+        <div id="register-form" style="display:none">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="reg-username" placeholder="至少2个字符">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="reg-password" placeholder="至少4个字符">
+            </div>
+            <button class="btn-primary" onclick="doRegister()">注册</button>
+        </div>
+        <div id="msg" class="msg"></div>
+        <div class="divider">或</div>
+        <button class="btn-guest" onclick="doGuest()">游客模式体验</button>
+    </div>
+    <script src="/js/config.js"></script>
+    <script>
+        const API = LEVIATHAN_CONFIG.API_V1 + '/auth';
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (tab==='login'?0:1)===i));
+            document.getElementById('login-form').style.display = tab==='login' ? 'block' : 'none';
+            document.getElementById('register-form').style.display = tab==='register' ? 'block' : 'none';
+            document.getElementById('msg').textContent = '';
+        }
+
+        function showMsg(text, type) {
+            const el = document.getElementById('msg');
+            el.textContent = text;
+            el.className = `msg ${type}`;
+        }
+
+        function onSuccess(data) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            showMsg('登录成功，正在跳转...', 'success');
+            setTimeout(() => window.location.href = '/', 500);
+        }
+
+        async function doLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!username || !password) { showMsg('请填写用户名和密码', 'error'); return; }
+            try {
+                const resp = await fetch(`${API}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+                const data = await resp.json();
+                if (data.status === 'success') onSuccess(data);
+                else showMsg(data.detail || '登录失败', 'error');
+            } catch(e) { showMsg('网络错误', 'error'); }
+        }
+
+        async function doRegister() {
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            if (!username || !password) { showMsg('请填写用户名和密码', 'error'); return; }
+            try {
+                const resp = await fetch(`${API}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+                const data = await resp.json();
+                if (data.status === 'success') onSuccess(data);
+                else showMsg(data.detail || '注册失败', 'error');
+            } catch(e) { showMsg('网络错误', 'error'); }
+        }
+
+        async function doGuest() {
+            try {
+                const resp = await fetch(`${API}/guest`, { method:'POST' });
+                const data = await resp.json();
+                if (data.status === 'success') onSuccess(data);
+                else showMsg(data.detail || '游客登录失败', 'error');
+            } catch(e) { showMsg('网络错误', 'error'); }
+        }
+
+        // Enter键提交
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (document.getElementById('login-form').style.display !== 'none') doLogin();
+                else doRegister();
+            }
+        });
+
+        // 已登录则跳转
+        if (localStorage.getItem('token')) window.location.href = '/';
+    </script>
+</body>
+</html>

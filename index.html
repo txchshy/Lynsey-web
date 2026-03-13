@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, user-scalable=yes">
+    <title>灵犀一指 (Lynsey) · 餐饮全链路决策系统</title>
+    <script src="lib/echarts.min.js"></script>
+    <!-- 百度地图API将通过后端动态加载 -->
+    <link rel="stylesheet" href="css/lynsey.css?v=1.3.3">
+</head>
+<body>
+    <div class="video-background">
+        <video autoplay muted loop playsinline preload="auto" id="myVideo">
+            <source src="background/背景1.mp4" type="video/mp4">
+        </video>
+        <div class="video-overlay"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>灵犀一指 (Lynsey) · 餐饮全链路决策系统</h1>
+            <div class="header-info">
+                <span id="current-time"></span>
+                <span id="update-time">数据更新时间：2026-02-09</span>
+                <div class="user-menu" id="user-menu-area"></div>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <!-- 左上角：AI智囊团选址决策 -->
+            <div class="corner-module top-left">
+                <div class="module-title">
+                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    AI智囊团选址决策
+                </div>
+                <div class="module-content">
+                    <div class="ai-assistant-container">
+                        <div class="ai-assistant-header">
+                            <div class="ai-icon-wrapper">
+                                <div class="ai-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M12 2v20M2 12h20"></path>
+                                        <circle cx="12" cy="12" r="4"></circle>
+                                        <path d="m4.93 4.93 4.24 4.24m5.66 5.66 4.24 4.24m-4.24-14.14 4.24 4.24M4.93 19.07l4.24-4.24"></path>
+                                    </svg>
+                                </div>
+                                <div class="pulse-ring"></div>
+                            </div>
+                            <div class="ai-status">
+                                <span class="status-dot"></span>
+                                <span class="status-text">5大模型协同分析中</span>
+                            </div>
+                        </div>
+                        
+                        <div class="ai-features">
+                            <div class="feature-card">
+                                <div class="card-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </div>
+                                <div class="card-content">
+                                    <h4>五大模型投票决策</h4>
+                                    <p>Claude、GPT、Kimi、豆包、通义千问同时分析，投票聚合结论</p>
+                                </div>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <div class="card-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path>
+                                        <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z"></path>
+                                    </svg>
+                                </div>
+                                <div class="card-content">
+                                    <h4>智能选址建议报告</h4>
+                                    <p>输入店铺信息和位置，AI智囊团生成专业选址分析报告</p>
+                                </div>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <div class="card-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M9 12l2 2 4-4"></path>
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                    </svg>
+                                </div>
+                                <div class="card-content">
+                                    <h4>交叉验证防幻觉</h4>
+                                    <p>多模型共识机制，自动过滤错误结论，确保分析可靠</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="ai-actions">
+                            <button class="ai-btn primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                                </svg>
+                                启动决策中枢
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 左下角：灵犀·行业知识 RAG 智库 -->
+            <div class="corner-module bottom-left">
+                <div class="module-title">
+                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    灵犀·行业知识 RAG 智库
+                </div>
+                <div class="module-content">
+                    <div class="db-agent-container">
+                        <div class="db-agent-layout">
+                            <div class="db-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <circle cx="12" cy="12" r="6"></circle>
+                                    <circle cx="12" cy="12" r="2"></circle>
+                                </svg>
+                                <div class="db-pulse"></div>
+                            </div>
+                            <div class="db-keywords">
+                                <span class="keyword-tag">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                    自然语言问政
+                                </span>
+                                <span class="keyword-tag">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    生成商圈研报
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="db-features">
+                            <div class="db-feature-item">
+                                <div class="feature-icon">1</div>
+                                <p>本地合规性审查<br>- 自动匹配工商/消防/环保最新条例</p>
+                            </div>
+                            <div class="db-feature-item">
+                                <div class="feature-icon">2</div>
+                                <p>全网舆情风向标<br>- 聚合小红书/抖音餐饮热搜关键词</p>
+                            </div>
+                        </div>
+                        
+                        <div class="db-tech-stack">
+                            <span class="tech-badge">RAGFlow</span>
+                            <span class="tech-badge">LangChain</span>
+                            <span class="tech-badge">PDF解析</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右上角：Aaru·数字孪生仿真沙盒 -->
+            <div class="corner-module top-right clickable-module" onclick="window.location.href='pages/twin/twin.html'" style="cursor: pointer;">
+                <div class="module-title">
+                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    数字孪生仿真沙盒
+                </div>
+                <div class="module-content">
+                    <div class="pentest-container">
+                        <div class="pentest-intro">
+                            <p class="intro-text">Agent群体建模，LLM生成虚拟客流，智能经营演练</p>
+                        </div>
+                        
+                        <div class="pentest-workflow">
+                            <div class="workflow-step">
+                                <div class="step-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </div>
+                                <div class="step-label">客群建模</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-step">
+                                <div class="step-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="step-label">口味测试</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-step">
+                                <div class="step-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                </div>
+                                <div class="step-label">营收推演</div>
+                            </div>
+                        </div>
+                        
+                        <div class="pentest-stats">
+                            <div class="stat-card">
+                                <div class="stat-number">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                    </svg>
+                                </div>
+                                <div class="stat-desc">启动仿真</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                        <line x1="12" y1="19" x2="12" y2="22"></line>
+                                    </svg>
+                                </div>
+                                <div class="stat-desc">生成群体报告</div>
+                            </div>
+                        </div>
+                        
+                        <div class="pentest-actions">
+                            <button class="pentest-btn primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                                </svg>
+                                启动数字孪生
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右下角：智能营销工坊 -->
+            <div class="corner-module bottom-right">
+                <div class="module-title">
+                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                    智能营销工坊
+                </div>
+                <div class="module-content">
+                    <div class="audit-container">
+                        <div class="audit-tools" style="grid-template-columns:1fr 1fr;gap:8px">
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                <span>业态跟踪周报</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+                                <span>抖音智能周更</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                                <span>AI智能定位分析</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                <span>AI探店博主推荐</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                                <span>AI智能投放</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>
+                                <span>菜品研发AI推荐</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <span>差评实时回复</span>
+                            </div>
+                            <div class="tool-card">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                                <span>日周月报数据AI整合</span>
+                            </div>
+                            <div class="tool-card" style="grid-column:1/-1">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                <span>负面舆情AI预警及危机公关建议</span>
+                            </div>
+                        </div>
+                        
+                        <div class="audit-actions">
+                            <button class="audit-btn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                                </svg>
+                                启动营销工坊
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中央地图区域 -->
+            <div class="center-panel">
+                <div id="china-map" class="main-map"></div>
+                
+                <!-- 选址AI模糊运算台 -->
+                <div class="report-window-module">
+                    <div class="report-window-title">
+                        <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        选址AI模糊运算台
+                        <div class="radius-btn-group">
+                            <button class="radius-btn active" data-radius="5000">5km</button>
+                            <button class="radius-btn" data-radius="3000">3km</button>
+                            <button class="radius-btn" data-radius="1000">1km</button>
+                        </div>
+                        <button id="view-progress-btn" class="view-progress-btn" style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                <polyline points="17 6 23 6 23 12"></polyline>
+                            </svg>
+                            查看进度
+                        </button>
+                    </div>
+                    <div class="report-window-content">
+                        <div class="report-input-section">
+                            <!-- 左列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    省份 <span class="required">*</span>
+                                </label>
+                                <select id="province-input" required>
+                                    <option value="">请选择省份</option>
+                                </select>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    城市 <span class="required">*</span>
+                                </label>
+                                <select id="city-input" required disabled>
+                                    <option value="">请先选择省份</option>
+                                </select>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 左列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    市区 <span class="required">*</span>
+                                </label>
+                                <select id="district-input" required disabled>
+                                    <option value="">请先选择城市</option>
+                                </select>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    </svg>
+                                    商圈商场 <span class="required">*</span>
+                                </label>
+                                <input type="text" id="business-area-input" placeholder="如：建外SOHO商圈" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 左列 -->
+                            <div class="input-group compact full-width">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    街道门牌号 <span class="required">*</span>
+                                </label>
+                                <input type="text" id="street-input" placeholder="如：建外SOHO西区12号楼" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 左列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                    </svg>
+                                    餐饮大类 <span class="required">*</span>
+                                </label>
+                                <select id="cuisine-category-input" required>
+                                    <option value="">正在加载...</option>
+                                </select>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                    </svg>
+                                    菜系类型 <span class="required">*</span>
+                                </label>
+                                <select id="cuisine-input" required disabled>
+                                    <option value="">请先选择餐饮大类</option>
+                                </select>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                    客单价(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="price-input" placeholder="如：80" min="10" max="10000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 左列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                    月租金(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="rent-input" placeholder="如：15000" min="1000" max="1000000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    </svg>
+                                    店内平米(㎡) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="area-input" placeholder="如：120" min="10" max="10000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 左列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                    期望月营收(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="revenue-input" placeholder="如：300000" min="10000" max="10000000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 装修费 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                    </svg>
+                                    装修费(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="renovation-input" placeholder="如：200000" min="0" max="10000000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 设备采购费 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                                    </svg>
+                                    设备采购费(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="equipment-input" placeholder="如：100000" min="0" max="10000000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 加盟费 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                                    </svg>
+                                    加盟费(元)
+                                </label>
+                                <input type="number" id="franchise-input" placeholder="无则填0" min="0" max="10000000" value="0">
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 备货及推广费 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                                    </svg>
+                                    备货及推广费(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="stock-promotion-input" placeholder="如：50000" min="0" max="10000000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 品牌影响力 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                                    </svg>
+                                    品牌影响力(1-10) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="brand-input" placeholder="如：6" min="1" max="10" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <!-- 右列 -->
+                            <div class="input-group compact">
+                                <label>
+                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                    5km内人均月收入(元) <span class="required">*</span>
+                                </label>
+                                <input type="number" id="income-input" placeholder="如：12000" min="1000" max="100000" required>
+                                <span class="error-message"></span>
+                            </div>
+                            
+                            <div class="button-row">
+                                <button id="calculate-button" class="search-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <path d="m21 21-4.35-4.35"></path>
+                                    </svg>
+                                    开始运算
+                                </button>
+                                <button id="history-button" class="history-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    历史记录
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="calculation-result" class="report-result-section">
+                            <!-- 报告显示区域 -->
+                            <div id="report-display" class="report-display" style="display: none;">
+                                <div class="report-header">
+                                    <h3 id="report-title">选址分析报告</h3>
+                                </div>
+                                <div id="report-content" class="report-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史记录遮罩层 -->
+    <div id="history-overlay" class="history-overlay"></div>
+    
+    <!-- 进度弹窗遮罩层 -->
+    <div id="progress-overlay" class="history-overlay"></div>
+    
+    <!-- 进度弹窗 -->
+    <div id="progress-modal" class="history-list" style="display: none;">
+        <div class="history-header">
+            <h3>AI智能分析进度</h3>
+            <button id="close-progress-btn" class="close-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="history-content">
+            <div class="loading-content">
+                <div class="loading-header">
+                    <p class="loading-subtitle">正在为您生成专业选址报告...</p>
+                </div>
+                
+                <!-- 总进度条 -->
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-container">
+                        <div id="progress-bar" class="progress-bar"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="progress-percentage">0%</span>
+                        <span id="progress-time"></span>
+                    </div>
+                </div>
+                
+                <!-- 流程卡片列表 -->
+                <div class="process-cards">
+                    <div class="process-card" data-step="1">
+                        <div class="card-icon">📍</div>
+                        <div class="card-content">
+                            <div class="card-title">地址解析</div>
+                            <div class="card-result" id="result-1">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-1">⏳</div>
+                    </div>
+                    
+                    <div class="process-card" data-step="2">
+                        <div class="card-icon">🚇</div>
+                        <div class="card-content">
+                            <div class="card-title">地铁距离</div>
+                            <div class="card-result" id="result-2">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-2">⏳</div>
+                    </div>
+                    
+                    <div class="process-card" data-step="3">
+                        <div class="card-icon">🏢</div>
+                        <div class="card-content">
+                            <div class="card-title">POI采集</div>
+                            <div class="card-result" id="result-3">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-3">⏳</div>
+                    </div>
+                    
+                    <div class="process-card" data-step="4">
+                        <div class="card-icon">�</div>
+                        <div class="card-content">
+                            <div class="card-title">商圈定级与坪效</div>
+                            <div class="card-result" id="result-4">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-4">⏳</div>
+                    </div>
+                    
+                    <div class="process-card" data-step="5">
+                        <div class="card-icon">🤖</div>
+                        <div class="card-content">
+                            <div class="card-title">AI深度分析</div>
+                            <div class="card-result" id="result-5">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-5">⏳</div>
+                    </div>
+                    
+                    <div class="process-card" data-step="6">
+                        <div class="card-icon">📄</div>
+                        <div class="card-content">
+                            <div class="card-title">生成报告</div>
+                            <div class="card-result" id="result-6">等待中...</div>
+                        </div>
+                        <div class="card-status" id="status-6">⏳</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史记录列表 -->
+    <div id="history-list" class="history-list" style="display: none;">
+        <div class="history-header">
+            <h3>历史记录</h3>
+            <button id="close-history-btn" class="close-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div id="history-content" class="history-content"></div>
+    </div>
+    
+    <script src="js/config.js?v=1.0.0"></script>
+    <script src="js/auth.js?v=1.0.0"></script>
+    <script src="js/lynsey.js?v=1.3.0"></script>
+    <script>AUTH.renderUserMenu('user-menu-area');</script>
+</body>
+</html>

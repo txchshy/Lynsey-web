@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=800, initial-scale=1.0, minimum-scale=0.5, maximum-scale=3.0, user-scalable=yes">
+    <title>系统设置 - Leviathan</title>
+    <style>
+        :root { --bg:#031842; --card:rgba(10,36,99,0.7); --blue:#00f2fe; --purple:#7c3aed; --text:#e0e6ff; --sub:#8b9cc7; --border:rgba(0,242,254,0.2); --success:#52c41a; --danger:#ff4d4f; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:linear-gradient(135deg,#031842,#0a2463,#0d1b4a); min-height:100vh; color:var(--text); }
+        .top-bar { display:flex; align-items:center; gap:16px; padding:14px 24px; background:rgba(3,24,66,0.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+        .top-bar a { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:rgba(0,119,182,0.2); border:1px solid rgba(0,195,255,0.3); color:var(--blue); text-decoration:none; }
+        .top-bar h1 { font-size:18px; color:var(--blue); flex:1; }
+        .container { max-width:700px; margin:30px auto; padding:0 20px; }
+        .section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:20px; }
+        .section h2 { font-size:15px; color:var(--blue); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+        .config-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+        .config-row label { width:200px; font-size:13px; color:var(--sub); flex-shrink:0; }
+        .config-row input { flex:1; padding:8px 12px; background:rgba(0,20,60,0.6); border:1px solid rgba(0,195,255,0.25); border-radius:8px; color:var(--text); font-size:13px; outline:none; }
+        .config-row input:focus { border-color:var(--blue); }
+        .config-row .status { width:20px; text-align:center; font-size:14px; }
+        .btn-save { display:block; width:100%; padding:12px; background:linear-gradient(135deg,var(--purple),#4f46e5); border:1px solid rgba(124,58,237,0.6); border-radius:10px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; margin-top:8px; }
+        .btn-save:hover { box-shadow:0 0 20px rgba(124,58,237,0.4); }
+        .msg { text-align:center; font-size:13px; margin-top:10px; min-height:20px; }
+        .msg.success { color:var(--success); }
+        .msg.error { color:var(--danger); }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></a>
+        <h1>系统设置</h1>
+    </div>
+    <div class="container">
+        <div class="section">
+            <h2>API 密钥配置</h2>
+            <div id="config-list"></div>
+        </div>
+        <div class="section">
+            <h2>服务定价</h2>
+            <div id="pricing-list"></div>
+        </div>
+        <div class="section">
+            <h2>支付配置</h2>
+            <div id="payment-list"></div>
+        </div>
+        <div class="section">
+            <h2>用户管理</h2>
+            <button class="btn-save" onclick="loadUsers()">刷新用户列表</button>
+            <div id="user-list" style="margin-top:15px"></div>
+            <div style="margin-top:15px">
+                <input type="text" id="add-username" placeholder="用户名" style="width:120px;margin-right:5px">
+                <input type="number" id="add-amount" placeholder="充值金额" style="width:100px;margin-right:5px">
+                <button class="btn-save" onclick="addBalance()">充值</button>
+            </div>
+        </div>
+        <div class="section" style="background:transparent;border:none;padding:0">
+            <button class="btn-save" onclick="saveConfig()">保存所有配置</button>
+            <div id="msg" class="msg"></div>
+        </div>
+    </div>
+    <script>
+        const API_HOST = ['localhost','127.0.0.1'].includes(window.location.hostname)
+            ? `${window.location.protocol}//${window.location.hostname}:8000` : '';
+        const ADMIN_API = `${API_HOST}/api/v1/admin`;
+        const token = localStorage.getItem('token');
+        if (!token) { window.location.href = '/pages/auth/login.html'; }
+        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+        async function loadConfig() {
+            try {
+                const resp = await fetch(`${ADMIN_API}/config`, { headers });
+                if (resp.status === 403) { alert('需要管理员权限'); window.location.href = '/'; return; }
+                const data = await resp.json();
+                if (data.status !== 'success') return;
+                const list = document.getElementById('config-list');
+                list.innerHTML = data.configs.map(c => `
+                    <div class="config-row">
+                        <label>${c.label}</label>
+                        <input type="text" id="cfg-${c.key}" placeholder="${c.value}" data-key="${c.key}">
+                        <span class="status">${c.has_value ? '✓' : '✗'}</span>
+                    </div>
+                `).join('');
+                const pricingList = document.getElementById('pricing-list');
+                if (data.pricing) {
+                    pricingList.innerHTML = data.pricing.map(c => `
+                        <div class="config-row">
+                            <label>${c.label}</label>
+                            <input type="number" id="cfg-${c.key}" value="${c.value || ''}" data-key="${c.key}" style="width:100px">
+                            <span class="status">${c.has_value ? '✓' : '✗'}</span>
+                        </div>
+                    `).join('');
+                }
+                const paymentList = document.getElementById('payment-list');
+                if (data.payment) {
+                    paymentList.innerHTML = data.payment.map(c => `
+                        <div class="config-row">
+                            <label>${c.label}</label>
+                            <input type="text" id="cfg-${c.key}" value="${c.value || ''}" data-key="${c.key}" style="width:300px">
+                            <span class="status">${c.has_value ? '✓' : '✗'}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) { document.getElementById('msg').textContent = '加载失败'; }
+        }
+
+        async function saveConfig() {
+            const inputs = document.querySelectorAll('#config-list input, #pricing-list input, #payment-list input');
+            const configs = {};
+            inputs.forEach(el => {
+                if (el.value.trim()) configs[el.dataset.key] = el.value.trim();
+            });
+            if (!Object.keys(configs).length) {
+                document.getElementById('msg').textContent = '未填写任何新值';
+                document.getElementById('msg').className = 'msg error';
+                return;
+            }
+            try {
+                const resp = await fetch(`${ADMIN_API}/config`, { method:'PUT', headers, body:JSON.stringify({configs}) });
+                const data = await resp.json();
+                const msg = document.getElementById('msg');
+                if (data.status === 'success') {
+                    msg.textContent = data.message;
+                    msg.className = 'msg success';
+                    loadConfig();
+                } else {
+                    msg.textContent = data.detail || '保存失败';
+                    msg.className = 'msg error';
+                }
+            } catch(e) { document.getElementById('msg').textContent = '网络错误'; }
+        }
+
+        async function loadUsers() {
+            try {
+                const resp = await fetch(`${ADMIN_API}/users`, { headers });
+                const data = await resp.json();
+                if (data.status !== 'success') return;
+                const list = document.getElementById('user-list');
+                list.innerHTML = `
+                    <table style="width:100%;border-collapse:collapse">
+                        <tr style="background:#eee"><th>用户名</th><th>角色</th><th>余额(元)</th></tr>
+                        ${data.users.map(u => `
+                            <tr style="border-bottom:1px solid #ddd">
+                                <td>${u.username}</td><td>${u.role}</td><td>${u.balance.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } catch(e) { document.getElementById('msg').textContent = '加载用户失败'; }
+        }
+
+        async function addBalance() {
+            const username = document.getElementById('add-username').value.trim();
+            const amount = parseFloat(document.getElementById('add-amount').value);
+            if (!username || !amount || amount <= 0) {
+                document.getElementById('msg').textContent = '请输入正确的用户名和金额';
+                document.getElementById('msg').className = 'msg error';
+                return;
+            }
+            try {
+                const resp = await fetch(`${ADMIN_API}/add-balance`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ username, amount })
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') {
+                    document.getElementById('msg').textContent = data.detail || '充值失败';
+                    document.getElementById('msg').className = 'msg error';
+                    return;
+                }
+                document.getElementById('msg').textContent = `充值成功：${data.username} 余额 ${data.old_balance} -> ${data.new_balance}`;
+                document.getElementById('msg').className = 'msg success';
+                document.getElementById('add-username').value = '';
+                document.getElementById('add-amount').value = '';
+                loadUsers();
+            } catch(e) {
+                document.getElementById('msg').textContent = '请求失败';
+                document.getElementById('msg').className = 'msg error';
+            }
+        }
+
+        loadConfig();
+        loadUsers();
+    </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+/**
+ * Leviathan 公共样式
+ *
+ * 所有页面共享的基础样式、配色方案、字体
+ */
+
+:root {
+    --bg-primary: #031842;
+    --bg-secondary: #0a2463;
+    --bg-card: rgba(10, 36, 99, 0.6);
+    --text-primary: #e0e6ff;
+    --text-secondary: #8b9cc7;
+    --accent-blue: #00f2fe;
+    --accent-cyan: #00d4ff;
+    --accent-purple: #7c3aed;
+    --border-color: rgba(0, 242, 254, 0.2);
+    --success: #52c41a;
+    --warning: #faad14;
+    --danger: #ff4d4f;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+        'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+h1 {
+    font-size: 28px;
+    color: var(--accent-blue);
+    text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+    margin-bottom: 20px;
+}
+
+p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
