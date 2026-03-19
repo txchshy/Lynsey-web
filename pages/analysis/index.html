@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, user-scalable=yes">
+    <title>历史记录分析对比</title>
+    <script src="../../lib/echarts.min.js"></script>
+    <script src="../../js/config.js"></script>
+    <link rel="stylesheet" href="analysis.css?v=1">
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <!-- ── 顶部导航 ── -->
+    <nav class="top-nav">
+        <a href="/" class="nav-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </a>
+        <div class="nav-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path>
+            </svg>
+            历史记录分析对比
+        </div>
+    </nav>
+
+    <!-- ── 模式切换 ── -->
+    <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="single-location">选址分析对比</button>
+        <button class="mode-tab" data-mode="single-twin">数字孪生对比</button>
+        <button class="mode-tab" data-mode="comprehensive">综合分析</button>
+    </div>
+
+    <!-- ── 主体布局 ── -->
+    <div class="main-container">
+        <!-- 左侧：报告列表 -->
+        <div class="panel-list">
+            <div class="panel-header">
+                <h3>选择报告</h3>
+                <span class="badge" id="total-badge">0 条</span>
+            </div>
+            <div class="group-list" id="group-list">
+                <div class="loading-overlay"><div class="spinner"></div>加载中...</div>
+            </div>
+            <div class="panel-footer">
+                <span class="selected-count">已选 <strong id="selected-count">0</strong> 条</span>
+                <button class="btn-compare" id="btn-compare" disabled>开始对比分析</button>
+            </div>
+        </div>
+
+        <!-- 右侧：对比结果 -->
+        <div class="panel-result" id="panel-result">
+            <div class="result-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path>
+                </svg>
+                <span>在左侧选择 2 个以上报告，点击"开始对比分析"</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="analysis.js?v=1"></script>
+</body>
+</html>

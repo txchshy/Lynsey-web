@@ -31,6 +31,12 @@
                 </svg>
                 历史记录
             </button>
+            <button class="nav-btn-history" onclick="window.location.href='/pages/analysis/'" style="background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(0,180,255,0.15));border-color:rgba(168,85,247,0.3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path>
+                </svg>
+                分析对比
+            </button>
             <span id="current-time"></span>
             <span id="agent-count">500 Agents</span>
         </div>
@@ -251,10 +257,78 @@
         </div>
     </div>
 
+    <!-- ── 选址分析补充信息弹窗 ── -->
+    <div id="location-supplement-modal" class="modal-overlay" style="display:none">
+        <div class="modal-box" style="max-width:560px">
+            <div class="modal-header">
+                <h2>补充选址分析信息</h2>
+                <button onclick="document.getElementById('location-supplement-modal').style.display='none'" class="modal-close">&times;</button>
+            </div>
+            <p style="color:var(--text-dim);font-size:12px;margin-bottom:12px">该店铺尚无选址分析报告，请补充以下信息，系统将自动运行选址分析</p>
+            <div class="supplement-form">
+                <div class="supp-row">
+                    <label>商圈商场 *</label>
+                    <input type="text" id="supp-business-area" placeholder="如：望京SOHO">
+                </div>
+                <div class="supp-row">
+                    <label>月租金(元) *</label>
+                    <input type="number" id="supp-monthly-rent" placeholder="如：15000">
+                </div>
+                <div class="supp-row">
+                    <label>店内面积(㎡) *</label>
+                    <input type="number" id="supp-area-sqm" placeholder="如：120">
+                </div>
+                <div class="supp-row">
+                    <label>期望月营收(元) *</label>
+                    <input type="number" id="supp-monthly-revenue" placeholder="如：300000">
+                </div>
+                <div class="supp-row">
+                    <label>装修费(元)</label>
+                    <input type="number" id="supp-renovation" placeholder="如：200000" value="0">
+                </div>
+                <div class="supp-row">
+                    <label>设备采购费(元)</label>
+                    <input type="number" id="supp-equipment" placeholder="如：100000" value="0">
+                </div>
+                <div class="supp-row">
+                    <label>加盟费(元)</label>
+                    <input type="number" id="supp-franchise" placeholder="如有" value="0">
+                </div>
+                <div class="supp-row">
+                    <label>备货及推广费(元)</label>
+                    <input type="number" id="supp-stock-promo" placeholder="如：50000" value="0">
+                </div>
+                <div class="supp-row">
+                    <label>品牌影响力(1-10) *</label>
+                    <input type="number" id="supp-brand" min="1" max="10" value="5">
+                </div>
+                <div class="supp-row">
+                    <label>5km人均月收入(元) *</label>
+                    <input type="number" id="supp-income" placeholder="如：12000" value="12000">
+                </div>
+            </div>
+            <button id="supp-submit-btn" class="btn-primary" style="width:100%;margin-top:14px;padding:10px;font-size:14px" onclick="submitLocationSupplement()">
+                运行选址分析
+            </button>
+            <div id="supp-progress" style="display:none;text-align:center;padding:10px;color:var(--accent);font-size:13px">
+                <span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,180,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px"></span>
+                正在运行选址分析，请稍候...
+            </div>
+        </div>
+    </div>
+    <style>
+        .supplement-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .supp-row { display:flex; flex-direction:column; gap:3px; }
+        .supp-row label { font-size:11px; color:var(--text-dim); }
+        .supp-row input { padding:7px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:5px; color:var(--text-primary); font-size:13px; }
+        .supp-row input:focus { border-color:var(--accent); outline:none; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+
     <!-- ── 脚本加载 ── -->
     <script src="../../js/config.js"></script>
     <script src="../../js/auth.js"></script>
     <script src="../../js/common.js"></script>
-    <script src="twin.js?v=3"></script>
+    <script src="twin.js?v=4"></script>
 </body>
 </html>

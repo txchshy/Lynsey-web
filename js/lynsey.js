@@ -52,8 +52,21 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime();
 
+// ==================== 页面缩放适配 ====================
+function fitToScreen() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    const scaleX = window.innerWidth / 1920;
+    const scaleY = window.innerHeight / 1080;
+    container.style.transform = `scale(${scaleX}, ${scaleY})`;
+}
+
 // ==================== 页面初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // 适配屏幕缩放
+    fitToScreen();
+    window.addEventListener('resize', fitToScreen);
+
     // 优化背景视频性能
     optimizeBackgroundVideo();
     
@@ -487,7 +500,7 @@ async function loadCuisineTypes() {
             // 填充餐饮大类下拉框
             categorySelect.innerHTML = '<option value="">请选择餐饮大类</option>';
             
-            const categories = Object.keys(cuisineData.categories).sort();
+            const categories = Object.keys(cuisineData.categories);
             categories.forEach(category => {
                 const option = document.createElement('option');
                 option.value = category;
@@ -504,32 +517,33 @@ async function loadCuisineTypes() {
     } catch (error) {
         console.error('加载菜系列表失败:', error);
         
-        // 降级方案: 使用预定义列表
-        categorySelect.innerHTML = `
-            <option value="">请选择餐饮大类</option>
-            <option value="中餐馆">中餐馆 (31种)</option>
-            <option value="外国餐厅">外国餐厅 (10种)</option>
-            <option value="快餐店">快餐店 (5种)</option>
-            <option value="小吃快餐店">小吃快餐店 (6种)</option>
-            <option value="烤肉店">烤肉店 (3种)</option>
-            <option value="自助餐">自助餐 (1种)</option>
-            <option value="甜品店">甜品店 (3种)</option>
-            <option value="咖啡厅">咖啡厅 (2种)</option>
-        `;
-        
-        // 设置降级数据
-        cuisineData = {
-            categories: {
-                "中餐馆": ["川菜", "粤菜", "湘菜", "鲁菜", "苏菜", "浙菜", "闽菜", "徽菜", "火锅店", "烧烤店", "海鲜餐厅", "特色菜", "家常菜", "私房菜", "北京菜", "上海菜", "东北菜", "西北菜", "云南菜", "贵州菜", "江浙菜", "农家菜", "官府菜", "清真菜", "素食餐厅", "融合菜", "小龙虾店", "烤鱼店", "烤鸭店", "焖锅店", "汤锅店"],
-                "外国餐厅": ["日本料理", "韩国料理", "西餐厅", "东南亚菜", "铁板烧", "法国菜", "意大利菜", "美式餐厅", "墨西哥菜", "印度菜"],
-                "快餐店": ["中式快餐", "西式快餐", "汉堡店", "炸鸡店", "披萨店"],
-                "小吃快餐店": ["小吃", "面馆", "米粉店", "饺子馆", "包子铺", "生煎/锅贴"],
-                "烤肉店": ["韩式烤肉", "日式烤肉", "巴西烤肉"],
-                "自助餐": ["自助餐"],
-                "甜品店": ["甜品店", "冰淇淋店", "奶茶店"],
-                "咖啡厅": ["咖啡厅", "茶馆"]
-            }
+        // 降级方案: 使用核心分类
+        const fallbackCategories = {
+            "小吃快餐": ["快餐简餐", "小吃", "麻辣烫", "饺子", "炸鸡炸串", "卤味鸭脖", "包子", "黄焖鸡"],
+            "火锅": ["重庆火锅", "四川火锅", "老北京火锅", "潮汕牛肉火锅", "串串香", "鱼火锅", "小火锅"],
+            "川菜": ["川菜馆", "烤鱼", "干锅/香锅", "酸菜鱼/水煮鱼"],
+            "湘菜": ["湘菜", "土菜/农家菜"],
+            "烧烤烤串": ["烤串", "烧烤", "烤羊腿", "烤翅"],
+            "烤肉": ["韩式烤肉", "日式烤肉", "融合烤肉", "炙子烤肉"],
+            "咖啡": ["咖啡"],
+            "饮品店": ["茶饮果汁", "冰淇淋"],
+            "西餐": ["西餐", "牛排", "比萨", "意大利菜"],
+            "日本菜": ["日本料理", "寿司", "日式铁板烧"],
+            "韩式料理": ["韩式料理"],
+            "粤菜": ["粤菜馆", "茶餐厅", "烧腊", "潮汕菜"],
+            "北京菜": ["烤鸭", "京菜"],
+            "东北菜": ["东北菜"],
+            "面馆": ["面馆"],
+            "自助餐": ["自助餐", "烤肉自助", "火锅自助"],
+            "酒吧/酒馆": ["精酿啤酒", "鸡尾酒吧", "威士忌吧", "清吧", "小酒馆"],
+            "海鲜": ["海鲜餐厅"],
+            "小龙虾": ["小龙虾"],
         };
+        categorySelect.innerHTML = '<option value="">请选择餐饮大类</option>';
+        Object.keys(fallbackCategories).forEach(cat => {
+            categorySelect.innerHTML += `<option value="${cat}">${cat} (${fallbackCategories[cat].length}种)</option>`;
+        });
+        cuisineData = { categories: fallbackCategories };
         
         categorySelect.disabled = false;
         console.warn('⚠️ 使用预定义菜系列表');
@@ -693,6 +707,7 @@ async function performCalculation() {
         district: district,
         street_address: document.getElementById('street-input').value.trim(),
         business_area: document.getElementById('business-area-input').value.trim(),
+        restaurant_name: document.getElementById('restaurant-name-input').value.trim(),
         cuisine_type: document.getElementById('cuisine-input').value.trim(),
         avg_price_per_person: parseFloat(document.getElementById('price-input').value),
         monthly_rent: parseFloat(document.getElementById('rent-input').value),
@@ -1013,6 +1028,30 @@ function displayReport(result) {
         </div>
         
         <div class="report-section">
+            <h4 class="section-title">投资概览</h4>
+            <div class="invest-overview">
+                <div class="invest-item"><span class="invest-label">预估总投入</span><span class="invest-value">¥${(result.report.total_investment || 0).toLocaleString()}</span></div>
+                <div class="invest-item"><span class="invest-label">预估月营收</span><span class="invest-value">¥${(result.report.projected_monthly_revenue || 0).toLocaleString()}</span></div>
+                <div class="invest-item"><span class="invest-label">预估月毛利</span><span class="invest-value">¥${(result.report.projected_monthly_profit || 0).toLocaleString()}</span></div>
+                <div class="invest-item"><span class="invest-label">预估投资回报周期</span><span class="invest-value">${result.report.payback_period_months || '-'}个月</span></div>
+            </div>
+        </div>
+        ${(() => {
+            const pois = result.report.competitor_pois || [];
+            if (!pois.length) return '';
+            let s = '<div class="report-section"><h4 class="section-title">周边竞品品牌</h4><div class="competitor-grid">';
+            s += '<div class="competitor-list"><table class="competitor-table"><thead><tr><th>品牌</th><th>客单价</th><th>评分</th><th>距离</th></tr></thead><tbody>';
+            pois.slice(0, 20).forEach(p => {
+                s += '<tr><td>' + (p.name || '-') + '</td><td>' + (p.price ? '¥' + p.price : '-') + '</td><td>' + (p.overall_rating || '-') + '</td><td>' + (p.distance || '-') + 'm</td></tr>';
+            });
+            s += '</tbody></table></div>';
+            // 客单价对比图容器
+            s += '<div class="price-chart-box"><div id="price-compare-chart" style="width:100%;height:240px"></div></div>';
+            s += '</div></div>';
+            return s;
+        })()}
+        
+        <div class="report-section">
             <h4 class="section-title">核心经营指标</h4>
             <div class="metrics-grid">`;
     
@@ -1154,9 +1193,35 @@ function displayReport(result) {
     reportContent.innerHTML = html;
     reportDisplay.style.display = 'block';
     
-    console.log('报告HTML已设置');
-    console.log('reportDisplay.style.display =', reportDisplay.style.display);
-    console.log('reportContent.innerHTML长度 =', reportContent.innerHTML.length);
+    // 延迟渲染客单价对比图（确保DOM已就绪）
+    setTimeout(() => {
+        const chartEl = document.getElementById('price-compare-chart');
+        if (chartEl && typeof echarts !== 'undefined') {
+            const pois = result.report.competitor_pois || [];
+            const myName = result.report.business_area || '本店';
+            const myPrice = result.report.avg_price_per_person || 0;
+            const names = [myName];
+            const prices = [myPrice];
+            const colors = ['#00b4ff'];
+            pois.slice(0, 8).forEach(p => {
+                if (p.price && p.name) {
+                    names.push(p.name.length > 6 ? p.name.slice(0,6) + '…' : p.name);
+                    prices.push(p.price);
+                    colors.push('#64748b');
+                }
+            });
+            if (names.length > 1) {
+                const chart = echarts.init(chartEl);
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: names, axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 15 } },
+                    yAxis: { type: 'value', name: '元', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } },
+                    series: [{ type: 'bar', data: prices.map((v, i) => ({ value: v, itemStyle: { color: colors[i] } })), label: { show: true, position: 'top', color: '#e2e8f0', fontSize: 10 } }],
+                });
+            }
+        }
+    }, 100);
 }
 
 // ==================== 结论性语句映射 ====================
@@ -1223,15 +1288,32 @@ async function showHistory() {
                 minute: '2-digit'
             });
             
+            const totalInvestment = (record.monthly_rent || 0) * 12 + (record.renovation_cost || 0) + (record.equipment_cost || 0) + (record.franchise_fee || 0) + (record.initial_stock_promotion_cost || 0);
             html += `
                 <div class="history-item" data-report-id="${record.report_id}">
                     <div class="history-item-header">
-                        <span class="history-address">${record.street_address || '未知地址'}</span>
+                        <span class="history-address">${record.city || ''}${record.district || ''} ${record.street_address || '未知地址'}</span>
                         <span class="history-date">${date}</span>
                     </div>
                     <div class="history-item-details">
+                        <span class="detail-tag">${record.business_area || ''}</span>
                         <span class="detail-tag">${record.cuisine_type || '未知菜系'}</span>
-                        <span class="detail-tag">客单价: ¥${record.avg_price_per_person || 0}</span>
+                        <span class="detail-tag">客单价 ¥${record.avg_price_per_person || 0}</span>
+                        <span class="detail-tag">月租 ¥${(record.monthly_rent || 0).toLocaleString()}</span>
+                        <span class="detail-tag">${record.area_sqm || 0}㎡</span>
+                        <span class="detail-tag">期望营收 ¥${(record.estimated_monthly_revenue || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="history-item-details" style="margin-top:2px">
+                        <span class="detail-tag">装修 ¥${(record.renovation_cost || 0).toLocaleString()}</span>
+                        <span class="detail-tag">设备 ¥${(record.equipment_cost || 0).toLocaleString()}</span>
+                        ${record.franchise_fee ? `<span class="detail-tag">加盟 ¥${record.franchise_fee.toLocaleString()}</span>` : ''}
+                        <span class="detail-tag">备货推广 ¥${(record.initial_stock_promotion_cost || 0).toLocaleString()}</span>
+                        <span class="detail-tag">总投入 ¥${totalInvestment.toLocaleString()}</span>
+                        <span class="detail-tag">竞品 ${record.competitors_within_5km ?? '-'}家</span>
+                        <span class="detail-tag">品牌力 ${record.brand_influence_score || '-'}/10</span>
+                        <span class="detail-tag">人均收入 ¥${(record.avg_income_within_5km || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="history-item-details" style="margin-top:2px">
                         <span class="detail-tag">${record.competition_summary || '查看详情'}</span>
                     </div>
                     ${(() => { const c = getConclusion(record.competition_summary); return c.text ? `<div class="history-conclusion ${c.level}">${c.text}</div>` : ''; })()}

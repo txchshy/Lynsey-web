@@ -376,11 +376,13 @@ async function checkActiveSimulation() {
         const simId = info.simulation_id;
         if (!simId) return;
 
+        // 查询后端任务状态
         const resp = await fetch(`${TWIN_API}/simulate/${simId}/status`);
         if (!resp.ok) { localStorage.removeItem('twin_active_simulation'); return; }
         const data = await resp.json();
 
         if (data.status === 'running') {
+            // 任务仍在运行，自动重连 SSE
             _currentSimulationId = data.simulation_id;
             _sseMessageIndex = 0;
             const btn = document.getElementById('start-simulation');
@@ -395,8 +397,10 @@ async function checkActiveSimulation() {
             document.getElementById('progress-groups').style.display = '';
             const histTitle = document.getElementById('history-title');
             if (histTitle) histTitle.style.display = 'none';
+            // 使用后端返回的真实已运行时间
             _timerElapsed = (data.elapsed_seconds || 0) * 1000;
             _timerStartTime = Date.now();
+            // 恢复暂停状态
             if (data.is_paused) {
                 _isPaused = true;
                 const pauseBtn = document.getElementById('pause-simulation');
@@ -404,6 +408,7 @@ async function checkActiveSimulation() {
                 pauseBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 继续';
                 pauseBtn.classList.add('paused');
                 document.getElementById('stop-simulation').style.display = 'inline-flex';
+                // 暂停状态下计时器不动
                 simulationTimer = setInterval(() => {
                     const elapsed = (_timerElapsed / 1000).toFixed(1);
                     document.getElementById('progress-timer').textContent = `${elapsed}s`;
@@ -417,6 +422,7 @@ async function checkActiveSimulation() {
                     }
                 }, 100);
             }
+            // 更新 localStorage 为后端返回的真实 simulation_id
             localStorage.setItem('twin_active_simulation', JSON.stringify({
                 simulation_id: data.simulation_id
             }));
@@ -443,6 +449,7 @@ async function togglePause() {
             _isPaused = false;
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> 暂停';
             btn.classList.remove('paused');
+            // 替换定时器为动态计时
             clearInterval(simulationTimer);
             simulationTimer = setInterval(() => {
                 if (!_isPaused) {
@@ -486,6 +493,7 @@ async function stopSimulation() {
 
 // ── 启动仿真 ──
 async function startSimulation() {
+    // 付费检查（管理员免费）
     if (typeof AUTH !== 'undefined') {
         if (!AUTH.isLoggedIn()) { window.location.href = '/pages/auth/login.html'; return; }
         const user = AUTH.getUser();
@@ -499,12 +507,14 @@ async function startSimulation() {
         }
     }
 
+    // 检查是否有选址分析报告（用于PDF联动）
     const restaurantName = document.getElementById('restaurant-name').value.trim();
     if (restaurantName) {
         try {
             const checkResp = await fetch(`${LEVIATHAN_CONFIG.ANALYSIS_API}/check-location/${encodeURIComponent(restaurantName)}`);
             const checkData = await checkResp.json();
             if (!checkData.exists) {
+                // 弹窗让用户补充选址分析信息
                 window._pendingTwinStart = true;
                 document.getElementById('location-supplement-modal').style.display = 'flex';
                 return;
@@ -562,6 +572,7 @@ async function _doStartSimulation() {
         if (typeof AUTH !== 'undefined' && AUTH.getToken()) {
             headers['Authorization'] = `Bearer ${AUTH.getToken()}`;
         }
+        // 第一步：POST 启动后台任务，立即返回 simulation_id
         const response = await fetch(`${TWIN_API}/simulate`, {
             method: 'POST',
             headers: headers,
@@ -572,6 +583,7 @@ async function _doStartSimulation() {
         const result = await response.json();
 
         if (result.status === 'busy') {
+            // 已有任务在运行，自动切换到该任务的流
             _currentSimulationId = result.simulation_id;
             localStorage.setItem('twin_active_simulation', JSON.stringify({
                 simulation_id: result.simulation_id
@@ -582,10 +594,12 @@ async function _doStartSimulation() {
         }
 
         _currentSimulationId = result.simulation_id;
+        // 保存到 localStorage，离开页面后可恢复
         localStorage.setItem('twin_active_simulation', JSON.stringify({
             simulation_id: result.simulation_id
         }));
 
+        // 第二步：连接 SSE 流接收实时进度
         connectToStream(result.simulation_id, 0);
 
     } catch (e) {
@@ -627,6 +641,7 @@ async function connectToStream(simulationId, fromIndex) {
             }
         }
     } catch (e) {
+        // SSE 断线：如果任务仍在运行则不清理 UI，提示用户
         if (_currentSimulationId) {
             showToast('连接中断，刷新页面可自动重连', 'warning');
             return;
@@ -645,6 +660,7 @@ function handleSSEMessage(msg) {
     switch (msg.type) {
         case 'init':
             _currentSimulationId = msg.simulation_id;
+            // 更新 localStorage 为真实 simulation_id
             localStorage.setItem('twin_active_simulation', JSON.stringify({
                 simulation_id: msg.simulation_id
             }));
@@ -724,6 +740,7 @@ function _ensureCategoryBox(category) {
             </table>
         </div>
     `;
+    // 按固定顺序插入
     const orderIdx = CATEGORY_ORDER.indexOf(category);
     const children = Array.from(container.children);
     let inserted = false;
@@ -749,6 +766,7 @@ function appendLiveFeedback(msg) {
     const rating = msg.avg_rating != null ? msg.avg_rating.toFixed(1) : '-';
     const groupShort = msg.group_label.split('-').pop();
 
+    // 缓存agent详情
     if (msg.agent_results) _groupDetailCache[msg.group_label] = msg;
 
     const row = document.createElement('tr');
@@ -821,7 +839,7 @@ function showGroupDetail(groupLabel) {
                 <span>到访:${a.visit_frequency||"-"}</span>
                 <span>价格:${a.price_acceptance||"-"}</span>
             </div>
-            ${a.comment_text ? `<div style="margin-top:6px;font-size:12px;color:var(--text-secondary);line-height:1.6">"${a.comment_text}"</div>` : ''}
+            ${a.comment_text ? `<div style="margin-top:6px;font-size:12px;color:var(--text-secondary);line-height:1.6">“${a.comment_text}”</div>` : ''}
         </div>`;
     }).join('');
 }
@@ -830,6 +848,7 @@ function renderCategoryStats() {
     for (const cat of CATEGORY_ORDER) {
         const box = document.getElementById(`cat-box-${cat}`);
         if (!box) continue;
+        // 收集该大类所有agent结果
         const allAgents = [];
         for (const [label, data] of Object.entries(_groupDetailCache)) {
             if (_getCategoryFromLabel(label) === cat && data.agent_results) {
@@ -839,6 +858,7 @@ function renderCategoryStats() {
         if (!allAgents.length) continue;
         const total = allAgents.length;
 
+        // 统计维度
         const opinions = {}; const priceAcc = {}; const visitFreq = {};
         let ratingSum = 0, ratingCount = 0, viewSum = 0, shareSum = 0;
         const comments = [];
@@ -859,6 +879,7 @@ function renderCategoryStats() {
         const expensivePct = ((priceAcc['太贵了']||0) / total * 100).toFixed(1);
         const noVisitPct = ((visitFreq['不会去']||0) / total * 100).toFixed(1);
 
+        // 渲染统计摘要
         let existing = box.querySelector('.cat-stats');
         if (existing) existing.remove();
         const statsDiv = document.createElement('div');
@@ -926,7 +947,11 @@ function makePie(elId, data) {
     chart.setOption({
         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         color: ['#7c3aed', '#00f2fe', '#52c41a', '#faad14', '#ff4d4f', '#f472b6'],
-        series: [{ type: 'pie', radius: ['40%', '70%'], label: { color: '#8b9cc7', fontSize: 11 }, data: data }],
+        series: [{
+            type: 'pie', radius: ['40%', '70%'],
+            label: { color: '#8b9cc7', fontSize: 11 },
+            data: data,
+        }],
     });
     window.addEventListener('resize', () => chart.resize());
 }
@@ -955,7 +980,8 @@ function renderChartOpinion(data) {
 
 function renderChartActions(data) {
     if (!data) return;
-    makeBar('chart-actions', ['查看', '分享', '评分', '评论'], [data.view, data.share, data.rate, data.comment], '#00d4ff');
+    makeBar('chart-actions', ['查看', '分享', '评分', '评论'],
+        [data.view, data.share, data.rate, data.comment], '#00d4ff');
 }
 
 function renderChartFrequency(data) {
@@ -994,12 +1020,19 @@ function renderWordCloud(comments) {
             if (w.length >= 2 && !stopwords.has(w)) freq[w] = (freq[w] || 0) + 1;
         }
     }
-    const data = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 80).map(([name, value]) => ({ name, value }));
+    const data = Object.entries(freq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 80)
+        .map(([name, value]) => ({ name, value }));
     if (!data.length) { section.style.display = 'none'; return; }
     const chart = echarts.init(document.getElementById('chart-wordcloud'));
     chart.setOption({
         series: [{
-            type: 'wordCloud', shape: 'circle', gridSize: 8, sizeRange: [14, 48], rotationRange: [-30, 30],
+            type: 'wordCloud',
+            shape: 'circle',
+            gridSize: 8,
+            sizeRange: [14, 48],
+            rotationRange: [-30, 30],
             textStyle: { fontFamily: 'sans-serif', color: () => {
                 const palette = ['#7c3aed','#00f2fe','#52c41a','#faad14','#00d4ff','#f472b6','#ff4d4f'];
                 return palette[Math.floor(Math.random() * palette.length)];
@@ -1014,7 +1047,10 @@ function renderWordCloud(comments) {
 let _lastSimulationId = null;
 
 async function downloadReport() {
-    if (!_lastSimulationId) { showToast('暂无仿真结果，请先运行仿真', 'warning'); return; }
+    if (!_lastSimulationId) {
+        showToast('暂无仿真结果，请先运行仿真', 'warning');
+        return;
+    }
     try {
         const resp = await fetch(`${TWIN_API}/download/${_lastSimulationId}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1024,9 +1060,13 @@ async function downloadReport() {
         const cd = resp.headers.get('Content-Disposition') || '';
         const match = cd.match(/filename\*=UTF-8''(.+)/);
         a.download = match ? decodeURIComponent(match[1]) : '数字孪生仿真报告.pdf';
-        a.href = url; a.click(); URL.revokeObjectURL(url);
+        a.href = url;
+        a.click();
+        URL.revokeObjectURL(url);
         showToast('报告下载成功', 'success');
-    } catch (e) { showToast(`下载失败: ${e.message}`, 'error'); }
+    } catch (e) {
+        showToast(`下载失败: ${e.message}`, 'error');
+    }
 }
 
 // ── 历史记录 ──
@@ -1035,10 +1075,14 @@ async function openHistory() {
     const list = document.getElementById('history-list');
     modal.style.display = 'flex';
     list.innerHTML = '<div class="history-loading">加载中...</div>';
+
     try {
         const resp = await fetch(`${TWIN_API}/history?page=1&page_size=30`);
         const data = await resp.json();
-        if (data.status !== 'success' || !data.items.length) { list.innerHTML = '<div class="history-empty">暂无历史记录</div>'; return; }
+        if (data.status !== 'success' || !data.items.length) {
+            list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+            return;
+        }
         list.innerHTML = data.items.map(item => `
             <div class="history-item">
                 <div class="history-item-header" onclick="loadHistoryDetail('${item.simulation_id}')">
@@ -1056,7 +1100,9 @@ async function openHistory() {
                 <button class="btn-delete-history" onclick="event.stopPropagation();deleteHistory('${item.simulation_id}',this)">&times; 删除</button>
             </div>
         `).join('');
-    } catch (e) { list.innerHTML = `<div class="history-empty">加载失败: ${e.message}</div>`; }
+    } catch (e) {
+        list.innerHTML = `<div class="history-empty">加载失败: ${e.message}</div>`;
+    }
 }
 
 async function deleteHistory(simulationId, btnEl) {
@@ -1064,9 +1110,15 @@ async function deleteHistory(simulationId, btnEl) {
     try {
         const resp = await fetch(`${TWIN_API}/history/${simulationId}`, { method: 'DELETE' });
         const data = await resp.json();
-        if (data.status === 'success') { btnEl.closest('.history-item').remove(); showToast('已删除', 'success'); }
-        else { showToast(data.detail || '删除失败', 'error'); }
-    } catch (e) { showToast(`删除失败: ${e.message}`, 'error'); }
+        if (data.status === 'success') {
+            btnEl.closest('.history-item').remove();
+            showToast('已删除', 'success');
+        } else {
+            showToast(data.detail || '删除失败', 'error');
+        }
+    } catch (e) {
+        showToast(`删除失败: ${e.message}`, 'error');
+    }
 }
 
 async function loadHistoryDetail(simulationId) {
@@ -1079,16 +1131,19 @@ async function loadHistoryDetail(simulationId) {
         const detail = await detailResp.json();
         const groupsData = await groupsResp.json();
 
+        // 渲染分组实时过程
         document.getElementById('result-placeholder').style.display = 'none';
         document.getElementById('category-boxes').innerHTML = '';
         Object.keys(_groupDetailCache).forEach(k => delete _groupDetailCache[k]);
         const progressEl = document.getElementById('simulation-progress');
         progressEl.style.display = 'block';
+        // 历史模式：隐藏进度条/计时器，显示标题
         document.querySelector('.progress-header').style.display = 'none';
         document.querySelector('.progress-bar-wrapper').style.display = 'none';
         document.getElementById('progress-text').style.display = 'none';
         document.getElementById('progress-groups').style.display = 'none';
         document.getElementById('pause-simulation').style.display = 'none';
+        // 插入历史标题
         let histTitle = document.getElementById('history-title');
         if (!histTitle) {
             histTitle = document.createElement('h2');
@@ -1103,9 +1158,13 @@ async function loadHistoryDetail(simulationId) {
         if (groupsData.status === 'success' && groupsData.groups) {
             for (const g of groupsData.groups) {
                 const msg = {
-                    group_label: g.group_label, model: g.model_name,
-                    status: g.status, agent_results: g.agent_results,
-                    opinions: {}, actions: { view: 0, share: 0, rate: 0, comment: 0 }, avg_rating: null,
+                    group_label: g.group_label,
+                    model: g.model_name,
+                    status: g.status,
+                    agent_results: g.agent_results,
+                    opinions: {},
+                    actions: { view: 0, share: 0, rate: 0, comment: 0 },
+                    avg_rating: null,
                 };
                 const ratings = [];
                 for (const ar of (g.agent_results || [])) {
@@ -1121,12 +1180,15 @@ async function loadHistoryDetail(simulationId) {
             renderCategoryStats();
         }
 
+        // 渲染汇总结果
         if (detail.status === 'success' && detail.data) {
             document.getElementById('simulation-result').style.display = 'block';
             renderResult(detail.data);
         }
         showToast('已加载历史仿真结果', 'success');
-    } catch (e) { showToast(`加载详情失败: ${e.message}`, 'error'); }
+    } catch (e) {
+        showToast(`加载详情失败: ${e.message}`, 'error');
+    }
 }
 
 // ── 选址分析补充提交 ──
@@ -1146,22 +1208,29 @@ async function submitLocationSupplement() {
     const monthlyRevenue = parseFloat(document.getElementById('supp-monthly-revenue').value);
 
     if (!businessArea || !monthlyRent || !areaSqm || !monthlyRevenue) {
-        showToast('请填写必填字段', 'warning'); return;
+        showToast('请填写必填字段', 'warning');
+        return;
     }
 
     btn.style.display = 'none';
     progress.style.display = 'block';
 
     const payload = {
-        city, district, street_address: address, business_area: businessArea,
-        restaurant_name: restaurantName, cuisine_type: cuisineType,
-        avg_price_per_person: avgPrice, monthly_rent: monthlyRent,
-        area_sqm: areaSqm, estimated_monthly_revenue: monthlyRevenue,
+        city, district,
+        street_address: address,
+        business_area: businessArea,
+        restaurant_name: restaurantName,
+        cuisine_type: cuisineType,
+        avg_price_per_person: avgPrice,
+        monthly_rent: monthlyRent,
+        area_sqm: areaSqm,
+        estimated_monthly_revenue: monthlyRevenue,
         renovation_cost: parseFloat(document.getElementById('supp-renovation').value) || 0,
         equipment_cost: parseFloat(document.getElementById('supp-equipment').value) || 0,
         franchise_fee: parseFloat(document.getElementById('supp-franchise').value) || 0,
         initial_stock_promotion_cost: parseFloat(document.getElementById('supp-stock-promo').value) || 0,
-        search_radius: 5000, competitors_within_5km: null,
+        search_radius: 5000,
+        competitors_within_5km: null,
         brand_influence_score: parseInt(document.getElementById('supp-brand').value) || 5,
         avg_income_within_5km: parseFloat(document.getElementById('supp-income').value) || 12000,
     };
@@ -1176,6 +1245,7 @@ async function submitLocationSupplement() {
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
+        // 读取SSE流直到完成
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -1201,11 +1271,14 @@ async function submitLocationSupplement() {
             }
         }
 
+        // 关闭弹窗，启动仿真
         document.getElementById('location-supplement-modal').style.display = 'none';
-        btn.style.display = ''; progress.style.display = 'none';
+        btn.style.display = '';
+        progress.style.display = 'none';
         _doStartSimulation();
     } catch (e) {
         showToast(`选址分析失败: ${e.message}`, 'error');
-        btn.style.display = ''; progress.style.display = 'none';
+        btn.style.display = '';
+        progress.style.display = 'none';
     }
 }

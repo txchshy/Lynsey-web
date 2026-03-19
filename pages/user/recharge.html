@@ -2,145 +2,225 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=800, initial-scale=1.0, minimum-scale=0.5, maximum-scale=3.0, user-scalable=yes">
-    <title>用户中心 - 充值</title>
-    <link rel="stylesheet" href="/css/lynsey.css">
+    <meta name="viewport" content="width=1920, user-scalable=yes">
+    <title>用户中心</title>
+    <script src="/js/config.js"></script>
     <style>
-        .balance-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 30px;
+        :root {
+            --bg-dark: #0a0e1a; --bg-card: rgba(15,23,42,0.85);
+            --border-glow: rgba(0,180,255,0.25); --accent: #00b4ff;
+            --accent-dim: rgba(0,180,255,0.12); --text: #e2e8f0; --text-dim: #94a3b8;
+            --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+            --neon-cyan: #00f0ff; --neon-purple: #a855f7;
         }
-        .balance-amount {
-            font-size: 36px;
-            font-weight: bold;
-            margin: 10px 0;
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter','Microsoft YaHei',sans-serif; background:var(--bg-dark); color:var(--text); min-height:100vh; }
+        .bg-gradient { position:fixed; inset:0; background:radial-gradient(ellipse at 20% 50%,rgba(0,100,200,0.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(100,0,200,0.06) 0%,transparent 50%); pointer-events:none; z-index:0; }
+
+        /* 导航 */
+        .top-nav { position:sticky; top:0; z-index:100; display:flex; align-items:center; gap:16px; padding:12px 24px; background:rgba(10,14,26,0.92); border-bottom:1px solid var(--border-glow); backdrop-filter:blur(12px); }
+        .nav-back { color:var(--text-dim); text-decoration:none; display:flex; align-items:center; }
+        .nav-back:hover { color:var(--accent); }
+        .nav-title { font-size:18px; font-weight:600; color:var(--accent); display:flex; align-items:center; gap:8px; }
+
+        /* 主容器 */
+        .main { position:relative; z-index:1; max-width:960px; margin:0 auto; padding:24px; }
+
+        /* 用户信息卡片 */
+        .profile-card {
+            background:linear-gradient(135deg,rgba(0,180,255,0.12),rgba(168,85,247,0.1));
+            border:1px solid var(--border-glow); border-radius:14px; padding:28px 32px;
+            display:flex; align-items:center; gap:24px; margin-bottom:24px;
         }
-        .payment-methods {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin: 30px 0;
-        }
-        .payment-method {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            min-width: 200px;
-        }
-        .qr-code {
-            width: 150px;
-            height: 150px;
-            background: #f5f5f5;
-            margin: 10px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .contact-info {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin-top: 20px;
-        }
+        .avatar { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--neon-purple)); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; color:#fff; flex-shrink:0; }
+        .profile-info { flex:1; }
+        .profile-info .username { font-size:20px; font-weight:600; color:var(--text); }
+        .profile-info .role-badge { display:inline-block; font-size:11px; padding:2px 10px; border-radius:10px; margin-left:8px; }
+        .role-admin { background:rgba(168,85,247,0.2); color:var(--neon-purple); border:1px solid rgba(168,85,247,0.3); }
+        .role-user { background:var(--accent-dim); color:var(--accent); border:1px solid var(--border-glow); }
+        .role-guest { background:rgba(148,163,184,0.15); color:var(--text-dim); border:1px solid rgba(148,163,184,0.2); }
+        .profile-info .join-date { font-size:12px; color:var(--text-dim); margin-top:4px; }
+        .balance-box { text-align:right; }
+        .balance-label { font-size:12px; color:var(--text-dim); }
+        .balance-amount { font-size:32px; font-weight:700; color:var(--neon-cyan); }
+        .balance-unit { font-size:14px; color:var(--text-dim); }
+
+        /* 区块 */
+        .section { background:var(--bg-card); border:1px solid var(--border-glow); border-radius:10px; padding:20px 24px; margin-bottom:20px; }
+        .section-title { font-size:15px; color:var(--accent); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+        .section-title svg { width:16px; height:16px; }
+
+        /* 服务定价 */
+        .pricing-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+        .price-item { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:14px; text-align:center; }
+        .price-item .svc-name { font-size:13px; color:var(--text); margin-bottom:6px; }
+        .price-item .svc-price { font-size:22px; font-weight:700; color:var(--neon-cyan); }
+        .price-item .svc-unit { font-size:11px; color:var(--text-dim); }
+
+        /* 充值方式 */
+        .payment-grid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+        .payment-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:16px; text-align:center; min-width:200px; }
+        .payment-card h4 { font-size:13px; color:var(--text); margin-bottom:10px; }
+        .qr-box { width:160px; height:160px; margin:0 auto 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12px; overflow:hidden; }
+        .qr-box img { width:100%; height:100%; object-fit:contain; }
+        .payment-card p { font-size:11px; color:var(--text-dim); }
+        .contact-box { margin-top:14px; padding:12px 16px; background:rgba(0,180,255,0.06); border:1px solid var(--border-glow); border-radius:6px; text-align:center; font-size:13px; color:var(--text-dim); }
+
+        /* 消费记录 */
+        .records-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .records-table th,.records-table td { padding:8px 12px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .records-table th { color:var(--accent); font-weight:500; background:rgba(0,180,255,0.05); }
+        .records-table td { color:var(--text); }
+        .records-table .amount { color:var(--danger); font-weight:600; }
+        .records-table .status-ok { color:var(--success); }
+        .empty-msg { text-align:center; padding:24px; color:var(--text-dim); font-size:13px; }
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <a href="/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></a>
-        <h1>用户中心</h1>
-    </div>
-    <div class="container">
-        <div class="balance-card">
-            <h2>当前余额</h2>
-            <div class="balance-amount" id="balance">加载中...</div>
-            <p>余额可用于选址分析和数字孪生仿真服务</p>
-        </div>
+    <div class="bg-gradient"></div>
 
-        <div class="section">
-            <h2>充值方式</h2>
-            <div class="payment-methods" id="payment-methods">
-                <div class="payment-method">
-                    <h3>微信支付</h3>
-                    <div class="qr-code" id="wechat-qr">
-                        <span id="wechat-status">加载中...</span>
-                    </div>
-                    <p>扫码支付后联系客服确认</p>
-                </div>
-                <div class="payment-method">
-                    <h3>支付宝</h3>
-                    <div class="qr-code" id="alipay-qr">
-                        <span id="alipay-status">加载中...</span>
-                    </div>
-                    <p>扫码支付后联系客服确认</p>
-                </div>
+    <nav class="top-nav">
+        <a href="/" class="nav-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </a>
+        <div class="nav-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            用户中心
+        </div>
+    </nav>
+
+    <div class="main">
+        <!-- 用户信息 -->
+        <div class="profile-card">
+            <div class="avatar" id="avatar">?</div>
+            <div class="profile-info">
+                <div><span class="username" id="username">加载中...</span><span class="role-badge role-user" id="role-badge">user</span></div>
+                <div class="join-date" id="join-date"></div>
+            </div>
+            <div class="balance-box">
+                <div class="balance-label">账户余额</div>
+                <div><span class="balance-amount" id="balance">--</span><span class="balance-unit"> 元</span></div>
             </div>
         </div>
 
-        <div class="contact-info" id="contact-info">
-            <h3>充值说明</h3>
-            <p id="contact-text">加载中...</p>
+        <!-- 服务定价 -->
+        <div class="section">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                服务定价
+            </div>
+            <div class="pricing-grid">
+                <div class="price-item"><div class="svc-name">选址分析 · 5km</div><div class="svc-price">199</div><div class="svc-unit">元/次</div></div>
+                <div class="price-item"><div class="svc-name">选址分析 · 3km</div><div class="svc-price">149</div><div class="svc-unit">元/次</div></div>
+                <div class="price-item"><div class="svc-name">选址分析 · 1km</div><div class="svc-price">99</div><div class="svc-unit">元/次</div></div>
+                <div class="price-item"><div class="svc-name">数字孪生仿真</div><div class="svc-price">299</div><div class="svc-unit">元/次</div></div>
+            </div>
+        </div>
+
+        <!-- 充值方式 -->
+        <div class="section">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                充值方式
+            </div>
+            <div class="payment-grid">
+                <div class="payment-card">
+                    <h4>微信支付</h4>
+                    <div class="qr-box" id="wechat-qr">未配置</div>
+                    <p>扫码支付后联系客服确认</p>
+                </div>
+                <div class="payment-card">
+                    <h4>支付宝</h4>
+                    <div class="qr-box" id="alipay-qr">未配置</div>
+                    <p>扫码支付后联系客服确认</p>
+                </div>
+            </div>
+            <div class="contact-box" id="contact-info">请联系管理员充值</div>
+        </div>
+
+        <!-- 消费记录 -->
+        <div class="section">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                消费记录
+            </div>
+            <div id="records-container"><div class="empty-msg">加载中...</div></div>
         </div>
     </div>
 
     <script src="/js/auth.js"></script>
     <script>
-        const API_HOST = ['localhost','127.0.0.1'].includes(window.location.hostname)
-            ? `${window.location.protocol}//${window.location.hostname}:8000` : '';
-        const ADMIN_API = `${API_HOST}/api/v1/admin`;
-        
-        async function loadBalance() {
-            const user = AUTH.getUser();
-            if (user) {
-                document.getElementById('balance').textContent = `¥${user.balance.toFixed(2)}`;
-            }
+    const AUTH_API = LEVIATHAN_CONFIG.API_V1 + '/auth';
+    const ADMIN_API = LEVIATHAN_CONFIG.API_V1 + '/admin';
+
+    if (!AUTH.isLoggedIn()) { window.location.href = '/pages/auth/login.html'; }
+
+    const SERVICE_NAMES = {
+        'location_5km': '选址分析·5km', 'location_3km': '选址分析·3km',
+        'location_1km': '选址分析·1km', 'twin': '数字孪生仿真',
+    };
+
+    async function init() {
+        const user = await AUTH.refreshUser();
+        if (!user) return;
+
+        document.getElementById('avatar').textContent = user.username.charAt(0).toUpperCase();
+        document.getElementById('username').textContent = user.username;
+
+        const badge = document.getElementById('role-badge');
+        const roleMap = { admin: ['管理员', 'role-admin'], user: ['普通用户', 'role-user'], guest: ['游客', 'role-guest'] };
+        const [roleText, roleCls] = roleMap[user.role] || ['用户', 'role-user'];
+        badge.textContent = roleText;
+        badge.className = 'role-badge ' + roleCls;
+
+        if (user.created_at) {
+            document.getElementById('join-date').textContent = '注册于 ' + new Date(user.created_at).toLocaleDateString('zh-CN');
         }
+        document.getElementById('balance').textContent = user.balance.toFixed(2);
 
-        async function loadPaymentInfo() {
-            try {
-                const resp = await fetch(`${ADMIN_API}/payment-info`);
-                const data = await resp.json();
-                
-                // 微信支付
-                const wechatEl = document.getElementById('wechat-qr');
-                if (data.wechat_url) {
-                    wechatEl.innerHTML = `<img src="${data.wechat_url}" alt="微信收款码" style="width:100%;height:100%;object-fit:contain">`;
-                } else {
-                    wechatEl.innerHTML = '<span>未配置</span>';
-                }
-
-                // 支付宝
-                const alipayEl = document.getElementById('alipay-qr');
-                if (data.alipay_url) {
-                    alipayEl.innerHTML = `<img src="${data.alipay_url}" alt="支付宝收款码" style="width:100%;height:100%;object-fit:contain">`;
-                } else {
-                    alipayEl.innerHTML = '<span>未配置</span>';
-                }
-
-                // 联系方式
-                document.getElementById('contact-text').textContent = data.contact_info || '请联系管理员充值';
-            } catch(e) {
-                document.getElementById('wechat-status').textContent = '加载失败';
-                document.getElementById('alipay-status').textContent = '加载失败';
-                document.getElementById('contact-text').textContent = '加载失败，请稍后重试';
-            }
-        }
-
-        // 检查登录状态
-        if (!AUTH.isLoggedIn()) {
-            window.location.href = '/pages/auth/login.html';
-        }
-
-        loadBalance();
         loadPaymentInfo();
+        loadRecords();
+    }
+
+    async function loadPaymentInfo() {
+        try {
+            const resp = await fetch(`${ADMIN_API}/payment-info`);
+            const data = await resp.json();
+            const wechatEl = document.getElementById('wechat-qr');
+            const alipayEl = document.getElementById('alipay-qr');
+            if (data.wechat_url) wechatEl.innerHTML = `<img src="${data.wechat_url}" alt="微信收款码">`;
+            if (data.alipay_url) alipayEl.innerHTML = `<img src="${data.alipay_url}" alt="支付宝收款码">`;
+            if (data.contact_info) document.getElementById('contact-info').textContent = data.contact_info;
+        } catch(e) { /* 静默 */ }
+    }
+
+    async function loadRecords() {
+        const container = document.getElementById('records-container');
+        try {
+            const resp = await fetch(`${AUTH_API}/records`, { headers: AUTH.authHeaders() });
+            const data = await resp.json();
+            if (data.status !== 'success' || !data.records.length) {
+                container.innerHTML = '<div class="empty-msg">暂无消费记录</div>';
+                return;
+            }
+            let html = '<table class="records-table"><thead><tr><th>服务</th><th>金额</th><th>状态</th><th>时间</th></tr></thead><tbody>';
+            for (const r of data.records) {
+                const date = r.created_at ? new Date(r.created_at).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+                html += `<tr>
+                    <td>${SERVICE_NAMES[r.service] || r.service}</td>
+                    <td class="amount">-¥${r.amount.toFixed(2)}</td>
+                    <td class="status-ok">${r.status === 'success' ? '成功' : r.status}</td>
+                    <td>${date}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } catch(e) {
+            container.innerHTML = '<div class="empty-msg">加载失败</div>';
+        }
+    }
+
+    init();
     </script>
 </body>
 </html>
