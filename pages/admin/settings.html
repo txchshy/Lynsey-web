@@ -45,6 +45,10 @@
             <div id="payment-list"></div>
         </div>
         <div class="section">
+            <h2>模型代号配置</h2>
+            <div id="model-code-list"></div>
+        </div>
+        <div class="section">
             <h2>用户管理</h2>
             <button class="btn-save" onclick="loadUsers()">刷新用户列表</button>
             <div id="user-list" style="margin-top:15px"></div>
@@ -101,11 +105,21 @@
                         </div>
                     `).join('');
                 }
+                const modelCodeList = document.getElementById('model-code-list');
+                if (data.model_codes) {
+                    modelCodeList.innerHTML = data.model_codes.map(c => `
+                        <div class="config-row">
+                            <label>${c.label}</label>
+                            <input type="text" id="cfg-${c.key}" value="${c.value || ''}" data-key="${c.key}" placeholder="${c.model_name}">
+                            <span class="status">${c.has_value ? '✓' : '✗'}</span>
+                        </div>
+                    `).join('');
+                }
             } catch(e) { document.getElementById('msg').textContent = '加载失败'; }
         }
 
         async function saveConfig() {
-            const inputs = document.querySelectorAll('#config-list input, #pricing-list input, #payment-list input');
+            const inputs = document.querySelectorAll('#config-list input, #pricing-list input, #payment-list input, #model-code-list input');
             const configs = {};
             inputs.forEach(el => {
                 if (el.value.trim()) configs[el.dataset.key] = el.value.trim();

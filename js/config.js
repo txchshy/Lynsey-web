@@ -18,6 +18,8 @@ const LEVIATHAN_CONFIG = (() => {
         TWIN_API: `${API_HOST}/api/v1/twin`,
         DECISION_API: `${API_HOST}/api/v1/decision`,
         MARKETING_API: `${API_HOST}/api/v1/marketing`,
+        ANALYSIS_API: `${API_HOST}/api/v1/analysis`,
+        ADMIN_API: `${API_HOST}/api/v1/admin`,
         CONFIG_API: `${API_HOST}/api/config`,
         // 旧接口兼容（过渡期）
         LEGACY_API: `${API_HOST}/api/location-analysis`,
