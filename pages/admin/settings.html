@@ -45,6 +45,11 @@
             <div id="payment-list"></div>
         </div>
         <div class="section">
+            <h2>模型名称配置</h2>
+            <p style="font-size:12px;color:var(--sub);margin-bottom:12px">修改后立即生效，无需重启服务。留空则使用默认值。</p>
+            <div id="model-name-list"></div>
+        </div>
+        <div class="section">
             <h2>模型代号配置</h2>
             <div id="model-code-list"></div>
         </div>
@@ -115,11 +120,21 @@
                         </div>
                     `).join('');
                 }
+                const modelNameList = document.getElementById('model-name-list');
+                if (data.model_names) {
+                    modelNameList.innerHTML = data.model_names.map(c => `
+                        <div class="config-row">
+                            <label>${c.label}</label>
+                            <input type="text" id="cfg-${c.key}" value="${c.value || ''}" data-key="${c.key}" placeholder="留空使用默认">
+                            <span class="status">${c.has_value ? '✓' : '✗'}</span>
+                        </div>
+                    `).join('');
+                }
             } catch(e) { document.getElementById('msg').textContent = '加载失败'; }
         }
 
         async function saveConfig() {
-            const inputs = document.querySelectorAll('#config-list input, #pricing-list input, #payment-list input, #model-code-list input');
+            const inputs = document.querySelectorAll('#config-list input, #pricing-list input, #payment-list input, #model-code-list input, #model-name-list input');
             const configs = {};
             inputs.forEach(el => {
                 if (el.value.trim()) configs[el.dataset.key] = el.value.trim();
