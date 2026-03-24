@@ -182,8 +182,10 @@ function renderCompareResult(data) {
     html += '<div class="charts-grid">';
 
     if (data.location_reports && data.location_reports.length) {
-        html += `<div class="chart-card"><h4>选址分析 - 雷达图对比</h4><div class="chart-container radar" id="chart-radar-loc"></div></div>`;
-        html += `<div class="chart-card"><h4>投资回报对比</h4><div class="chart-container" id="chart-invest"></div></div>`;
+        const filterHtml = _buildChartFilterHtml(data.location_reports, 'loc');
+        html += `<div class="chart-card full-width"><div class="chart-card-header"><h4>选址分析 - 雷达图对比</h4>${filterHtml}</div><div class="chart-container radar-full" id="chart-radar-loc"></div></div>`;
+        const filterHtml2 = _buildChartFilterHtml(data.location_reports, 'invest');
+        html += `<div class="chart-card full-width"><div class="chart-card-header"><h4>投资回报对比</h4>${filterHtml2}</div><div class="chart-container invest-full" id="chart-invest"></div></div>`;
         html += `<div class="chart-card full-width"><h4>选址分析详细数据</h4><div id="table-location"></div></div>`;
     }
     if (data.twin_reports && data.twin_reports.length) {
@@ -197,8 +199,12 @@ function renderCompareResult(data) {
 
     // 渲染图表
     if (data.location_reports && data.location_reports.length) {
-        renderLocationRadar(data.location_reports);
-        renderInvestChart(data.location_reports);
+        _bindChartFilter(data.location_reports, 'loc', true);
+        _bindChartFilter(data.location_reports, 'invest', false);
+        const visRadar = _getVisibleReports(data.location_reports, 'loc');
+        const visInvest = _getVisibleReports(data.location_reports, 'invest');
+        renderLocationRadar(visRadar);
+        renderInvestChart(visInvest);
         renderLocationTable(data.location_reports);
     }
     if (data.twin_reports && data.twin_reports.length) {
@@ -219,7 +225,7 @@ const COLORS = ['#00b4ff', '#a855f7', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4'
 function renderLocationRadar(reports) {
     const el = document.getElementById('chart-radar-loc');
     if (!el) return;
-    const chart = echarts.init(el);
+    const chart = echarts.getInstanceByDom(el) || echarts.init(el);
     const dims = [
         { key: 'grading_score', name: '商圈评分', max: 100 },
         { key: 'investment_score', name: '投资评分', max: 100 },
@@ -230,37 +236,74 @@ function renderLocationRadar(reports) {
     ];
     chart.setOption({
         ...CHART_THEME,
-        legend: { ...CHART_THEME.legend, data: reports.map(r => r.label) },
+        legend: {
+            ...CHART_THEME.legend,
+            data: reports.map(r => r.label),
+            type: 'scroll',
+            orient: 'vertical',
+            left: 0,
+            top: 'middle',
+            width: 220,
+            itemGap: 14,
+            pageTextStyle: { color: '#94a3b8' },
+            pageIconColor: '#00b4ff',
+            pageIconInactiveColor: '#334155',
+            textStyle: { color: '#94a3b8', fontSize: 11, width: 200, overflow: 'break' },
+            tooltip: { show: true },
+            formatter: function (name) {
+                return name.length > 18 ? name.slice(0, 18) + '\n' + name.slice(18) : name;
+            },
+        },
         radar: {
             indicator: dims.map(d => ({ name: d.name, max: d.max })),
             shape: 'polygon',
+            center: ['55%', '50%'],
+            radius: '65%',
             axisName: { color: '#94a3b8', fontSize: 10 },
             splitArea: { areaStyle: { color: ['rgba(0,180,255,0.02)', 'rgba(0,180,255,0.04)'] } },
             splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
         },
         series: [{
             type: 'radar',
-            data: reports.map((r, i) => ({
-                name: r.label,
-                value: dims.map(d => r.metrics[d.key] || 0),
-                lineStyle: { color: COLORS[i % COLORS.length] },
-                itemStyle: { color: COLORS[i % COLORS.length] },
-                areaStyle: { color: COLORS[i % COLORS.length], opacity: 0.1 },
-            })),
+            data: reports.map((r) => {
+                const ci = (r._origIdx !== undefined ? r._origIdx : 0) % COLORS.length;
+                return {
+                    name: r.label,
+                    value: dims.map(d => r.metrics[d.key] || 0),
+                    lineStyle: { color: COLORS[ci] },
+                    itemStyle: { color: COLORS[ci] },
+                    areaStyle: { color: COLORS[ci], opacity: 0.1 },
+                };
+            }),
         }],
-    });
+    }, true);
 }
 
 function renderInvestChart(reports) {
     const el = document.getElementById('chart-invest');
     if (!el) return;
-    const chart = echarts.init(el);
-    const labels = reports.map(r => r.label.length > 10 ? r.label.slice(0, 10) + '…' : r.label);
+    const chart = echarts.getInstanceByDom(el) || echarts.init(el);
+    // 标签换行：每10字换一行，完整显示
+    const labels = reports.map(r => {
+        const lbl = r.label;
+        if (lbl.length <= 10) return lbl;
+        const lines = [];
+        for (let i = 0; i < lbl.length; i += 10) lines.push(lbl.slice(i, i + 10));
+        return lines.join('\n');
+    });
+    // 超过8个时启用水平拖拽滚动
+    const needZoom = reports.length > 8;
+    const zoomCfg = needZoom ? [
+        { type: 'slider', xAxisIndex: 0, bottom: 0, height: 18, start: 0, end: Math.min(100, Math.round(800 / reports.length)), borderColor: 'rgba(0,180,255,0.2)', fillerColor: 'rgba(0,180,255,0.1)', handleStyle: { color: '#00b4ff' }, textStyle: { color: '#94a3b8', fontSize: 10 } },
+        { type: 'inside', xAxisIndex: 0 },
+    ] : [];
     chart.setOption({
         ...CHART_THEME,
         tooltip: { trigger: 'axis' },
         legend: { ...CHART_THEME.legend, data: ['总投入(万)', '月营收(万)', '回报周期(月)'] },
-        xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 15 } },
+        grid: { bottom: needZoom ? 80 : 60, left: 60, right: 60 },
+        dataZoom: zoomCfg,
+        xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 10, interval: 0 } },
         yAxis: [
             { type: 'value', name: '万元', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } },
             { type: 'value', name: '月', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { show: false } },
@@ -270,7 +313,7 @@ function renderInvestChart(reports) {
             { name: '月营收(万)', type: 'bar', data: reports.map(r => Math.round((r.metrics.monthly_revenue || 0) / 10000)), itemStyle: { color: COLORS[2] } },
             { name: '回报周期(月)', type: 'line', yAxisIndex: 1, data: reports.map(r => r.metrics.payback_months || 0), itemStyle: { color: COLORS[3] }, lineStyle: { width: 2 } },
         ],
-    });
+    }, true);
 }
 
 function renderTwinBar(reports) {
@@ -346,7 +389,7 @@ function renderTwinTable(reports) {
 }
 
 function buildCompareTable(reports, metrics) {
-    let html = '<table class="compare-table"><thead><tr><th class="metric-name">指标</th>';
+    let html = '<table class="compare-table"><thead><tr><th class="metric-name">选址</th>';
     for (const r of reports) {
         const short = r.label.length > 14 ? r.label.slice(0, 14) + '…' : r.label;
         html += `<th>${short}</th>`;
@@ -372,4 +415,61 @@ function buildCompareTable(reports, metrics) {
     }
     html += '</tbody></table>';
     return html;
+}
+
+// ── 图表Top5筛选 ──
+let _allLocReports = [];
+const MAX_DEFAULT_VISIBLE = 5;
+
+function _getTop5Indices(reports) {
+    return reports
+        .map((r, i) => ({ i, score: r.metrics.grading_score || 0 }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_DEFAULT_VISIBLE)
+        .map(x => x.i);
+}
+
+function _buildChartFilterHtml(reports, prefix) {
+    if (reports.length <= MAX_DEFAULT_VISIBLE) return '';
+    const top5 = new Set(_getTop5Indices(reports));
+    let opts = '';
+    reports.forEach((r, i) => {
+        const short = r.label.length > 18 ? r.label.slice(0, 18) + '…' : r.label;
+        const score = r.metrics.grading_score || 0;
+        const checked = top5.has(i) ? 'checked' : '';
+        opts += `<label class="filter-opt"><input type="checkbox" value="${i}" ${checked}><span>${short}</span><span class="filter-score">${score}分</span></label>`;
+    });
+    return `<div class="chart-filter" id="chart-filter-${prefix}">
+        <button class="filter-toggle" onclick="this.parentElement.classList.toggle('open')">
+            筛选显示 (${Math.min(reports.length, MAX_DEFAULT_VISIBLE)}/${reports.length})
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="filter-dropdown">${opts}</div>
+    </div>`;
+}
+
+function _getVisibleReports(reports, prefix) {
+    if (reports.length <= MAX_DEFAULT_VISIBLE) {
+        return reports.map((r, i) => ({ ...r, _origIdx: i }));
+    }
+    const filterEl = document.getElementById(`chart-filter-${prefix}`);
+    if (!filterEl) return reports.slice(0, MAX_DEFAULT_VISIBLE).map((r, i) => ({ ...r, _origIdx: i }));
+    const checked = [...filterEl.querySelectorAll('input[type=checkbox]:checked')].map(cb => parseInt(cb.value));
+    if (checked.length === 0) return reports.slice(0, MAX_DEFAULT_VISIBLE).map((r, i) => ({ ...r, _origIdx: i }));
+    return checked.map(i => ({ ...reports[i], _origIdx: i }));
+}
+
+function _bindChartFilter(reports, prefix, isRadar) {
+    _allLocReports = reports;
+    const filterEl = document.getElementById(`chart-filter-${prefix}`);
+    if (!filterEl) return;
+    filterEl.addEventListener('change', (e) => {
+        if (e.target.type !== 'checkbox') return;
+        const checked = [...filterEl.querySelectorAll('input[type=checkbox]:checked')];
+        const toggleBtn = filterEl.querySelector('.filter-toggle');
+        if (toggleBtn) toggleBtn.innerHTML = `筛选显示 (${checked.length}/${reports.length}) <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+        const vis = _getVisibleReports(reports, prefix);
+        if (isRadar) renderLocationRadar(vis);
+        else renderInvestChart(vis);
+    });
 }
