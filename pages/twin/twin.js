@@ -94,7 +94,7 @@ function geocodeAddress() {
 
 // ── 表单验证 ──
 function initFormValidation() {
-    const inputs = ['province-select', 'city-select', 'district-input', 'address-input', 'restaurant-name', 'cuisine-category-select', 'cuisine-select', 'avg-price'];
+    const inputs = ['province-select', 'city-select', 'district-input', 'address-input', 'cuisine-category-select', 'cuisine-select', 'avg-price'];
     inputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -110,12 +110,11 @@ function validateForm() {
     const city = document.getElementById('city-select').value;
     const district = document.getElementById('district-input').value;
     const address = document.getElementById('address-input').value.trim();
-    const name = document.getElementById('restaurant-name').value.trim();
     const category = document.getElementById('cuisine-category-select').value;
     const cuisine = document.getElementById('cuisine-select').value;
     const price = document.getElementById('avg-price').value;
 
-    const valid = province && city && district && address && name && category && cuisine && price;
+    const valid = province && city && district && address && category && cuisine && price;
     document.getElementById('start-simulation').disabled = !valid;
     return valid;
 }
@@ -556,8 +555,16 @@ async function _doStartSimulation() {
         }
     }, 100);
 
+    // 餐厅名称：空时自动生成地址名
+    let restaurantName = document.getElementById('restaurant-name').value.trim();
+    if (!restaurantName) {
+        const district = document.getElementById('district-input').value.trim();
+        const address = document.getElementById('address-input').value.trim();
+        restaurantName = `${district}${address}`.replace(/\s+/g, '') || '未命名餐厅';
+    }
+
     const payload = {
-        restaurant_name: document.getElementById('restaurant-name').value.trim(),
+        restaurant_name: restaurantName,
         city: document.getElementById('city-select').value,
         district: document.getElementById('district-input').value.trim(),
         address: document.getElementById('address-input').value.trim(),
@@ -709,7 +716,7 @@ function handleSSEMessage(msg) {
     }
 }
 
-const CATEGORY_ORDER = ['年轻白领', '学生群体', '家庭消费者', '美食达人', '随机低频用户'];
+const CATEGORY_ORDER = ['年轻白领', '学生群体', '家庭消费者', '意见领袖', '随机低频用户'];
 
 function _getCategoryFromLabel(label) {
     const idx = label.lastIndexOf('-G');
@@ -757,6 +764,8 @@ function _ensureCategoryBox(category) {
 }
 
 function appendLiveFeedback(msg) {
+    // 调用失败的组不显示
+    if (msg.status === 'failed') return;
     const category = _getCategoryFromLabel(msg.group_label);
     const tbody = _ensureCategoryBox(category);
     const opinions = msg.opinions || {};
@@ -902,7 +911,11 @@ function renderCategoryStats() {
 function updateProgress(msg) {
     const pct = msg.percent || 0;
     document.getElementById('progress-bar').style.width = `${pct}%`;
-    if (msg.message) document.getElementById('progress-text').textContent = msg.message;
+    if (msg.message) {
+        let text = msg.message;
+        if (msg.model) text = text.replace(msg.model, getModelCode(msg.model));
+        document.getElementById('progress-text').textContent = text;
+    }
 
     if (msg.groups) {
         const container = document.getElementById('progress-groups');
@@ -928,6 +941,10 @@ function renderResult(result) {
     renderChartPriceAccept(result.price_acceptance);
     renderWordCloud(result.all_comments || []);
     document.getElementById('ai-advice').textContent = result.ai_advice || '';
+
+    // 加载选址分析联动图表（雷达图+投资回报图）
+    const restName = result.restaurant?.name || '';
+    if (restName) loadLocationCharts(restName);
 }
 
 function renderStatCards(r) {
@@ -1205,9 +1222,7 @@ async function submitLocationSupplement() {
     const businessArea = document.getElementById('supp-business-area').value.trim();
     const monthlyRent = parseFloat(document.getElementById('supp-monthly-rent').value);
     const areaSqm = parseFloat(document.getElementById('supp-area-sqm').value);
-    const monthlyRevenue = parseFloat(document.getElementById('supp-monthly-revenue').value);
-
-    if (!businessArea || !monthlyRent || !areaSqm || !monthlyRevenue) {
+    if (!businessArea || !monthlyRent || !areaSqm) {
         showToast('请填写必填字段', 'warning');
         return;
     }
@@ -1224,7 +1239,7 @@ async function submitLocationSupplement() {
         avg_price_per_person: avgPrice,
         monthly_rent: monthlyRent,
         area_sqm: areaSqm,
-        estimated_monthly_revenue: monthlyRevenue,
+        estimated_monthly_revenue: monthlyRent * 20,
         renovation_cost: parseFloat(document.getElementById('supp-renovation').value) || 0,
         equipment_cost: parseFloat(document.getElementById('supp-equipment').value) || 0,
         franchise_fee: parseFloat(document.getElementById('supp-franchise').value) || 0,
@@ -1232,7 +1247,6 @@ async function submitLocationSupplement() {
         search_radius: 5000,
         competitors_within_5km: null,
         brand_influence_score: parseInt(document.getElementById('supp-brand').value) || 5,
-        avg_income_within_5km: parseFloat(document.getElementById('supp-income').value) || 12000,
     };
 
     try {
@@ -1281,4 +1295,113 @@ async function submitLocationSupplement() {
         btn.style.display = '';
         progress.style.display = 'none';
     }
+}
+
+// ── 选址分析联动图表 ──
+const LOC_COLORS = ['#00b4ff', '#a855f7', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4'];
+const LOC_CHART_THEME = {
+    backgroundColor: 'transparent',
+    textStyle: { color: '#94a3b8' },
+    legend: { textStyle: { color: '#94a3b8', fontSize: 11 }, top: 0 },
+};
+
+async function loadLocationCharts(restaurantName) {
+    const section = document.getElementById('location-charts-section');
+    if (!section) return;
+    try {
+        const resp = await fetch(`${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurantName)}`);
+        const data = await resp.json();
+        if (data.status !== 'success' || !data.data) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+        renderLocRadar(data.data);
+        renderLocInvest(data.data);
+    } catch (e) {
+        console.warn('加载选址分析图表失败:', e);
+        section.style.display = 'none';
+    }
+}
+
+function renderLocRadar(m) {
+    const el = document.getElementById('chart-loc-radar');
+    if (!el) return;
+    const chart = echarts.init(el);
+    const dims = [
+        { key: 'grading_score', name: '商圈评分', max: 100 },
+        { key: 'investment_score', name: '投资评分', max: 100 },
+        { key: 'foot_traffic', name: '人流量', max: 80000 },
+        { key: 'daily_revenue', name: '日均流水', max: 50000 },
+        { key: 'sqm_revenue', name: '坪效', max: 2000 },
+        { key: 'turnover_rate', name: '翻台率', max: 5 },
+    ];
+    chart.setOption({
+        ...LOC_CHART_THEME,
+        radar: {
+            indicator: dims.map(d => ({ name: d.name, max: d.max })),
+            shape: 'polygon',
+            axisName: { color: '#94a3b8', fontSize: 10 },
+            splitArea: { areaStyle: { color: ['rgba(0,180,255,0.02)', 'rgba(0,180,255,0.04)'] } },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+        },
+        series: [{
+            type: 'radar',
+            data: [{
+                name: '选址指标',
+                value: dims.map(d => m[d.key] || 0),
+                lineStyle: { color: LOC_COLORS[0], width: 2 },
+                itemStyle: { color: LOC_COLORS[0] },
+                areaStyle: { color: LOC_COLORS[0], opacity: 0.15 },
+            }],
+        }],
+    });
+    window.addEventListener('resize', () => chart.resize());
+}
+
+function renderLocInvest(m) {
+    const el = document.getElementById('chart-loc-invest');
+    if (!el) return;
+    const chart = echarts.init(el);
+    const totalInvest = Math.round((m.total_investment || 0) / 10000);
+    const monthlyRev = Math.round((m.monthly_revenue || 0) / 10000);
+    const monthlyProfit = Math.round((m.monthly_profit || 0) / 10000);
+    const payback = m.payback_months || 0;
+
+    chart.setOption({
+        ...LOC_CHART_THEME,
+        tooltip: { trigger: 'axis' },
+        grid: { left: 60, right: 60, top: 40, bottom: 30 },
+        xAxis: {
+            type: 'category',
+            data: ['总投入', '月营收', '月利润'],
+            axisLabel: { color: '#94a3b8', fontSize: 11 },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+        },
+        yAxis: {
+            type: 'value', name: '万元',
+            axisLabel: { color: '#94a3b8', fontSize: 10 },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+        },
+        series: [{
+            type: 'bar',
+            data: [
+                { value: totalInvest, itemStyle: { color: LOC_COLORS[0] } },
+                { value: monthlyRev, itemStyle: { color: LOC_COLORS[2] } },
+                { value: monthlyProfit, itemStyle: { color: monthlyProfit >= 0 ? LOC_COLORS[2] : LOC_COLORS[4] } },
+            ],
+            barWidth: '40%',
+            label: { show: true, position: 'top', color: '#e2e8f0', fontSize: 11, formatter: '{c}万' },
+        }],
+        graphic: [{
+            type: 'text',
+            right: 16, bottom: 40,
+            style: {
+                text: `回报周期: ${payback}个月`,
+                fill: payback <= 12 ? '#22c55e' : payback <= 24 ? '#f59e0b' : '#ef4444',
+                fontSize: 13, fontWeight: 'bold',
+            },
+        }],
+    });
+    window.addEventListener('resize', () => chart.resize());
 }

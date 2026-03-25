@@ -279,11 +279,26 @@ function initCalculationWindow() {
         progressOverlay.addEventListener('click', hideProgressModal);
     }
     
+    // 定位方式切换
+    const locationTypeSelect = document.getElementById('location-type-select');
+    const locationValueInput = document.getElementById('location-value-input');
+    if (locationTypeSelect && locationValueInput) {
+        locationTypeSelect.addEventListener('change', function() {
+            if (this.value === 'street') {
+                locationValueInput.placeholder = '如：建外SOHO西区12号楼';
+            } else {
+                locationValueInput.placeholder = '如：建外SOHO商圈';
+            }
+            locationValueInput.value = '';
+            locationValueInput.focus();
+        });
+    }
+    
     // 回车键触发运算
-    const inputIds = ['city-input', 'district-input', 'street-input', 'business-area-input', 
+    const inputIds = ['city-input', 'district-input', 'location-value-input', 'floor-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
                       'revenue-input', 'renovation-input', 'equipment-input', 'franchise-input',
-                      'stock-promotion-input', 'brand-input', 'income-input'];
+                      'stock-promotion-input', 'brand-input'];
     inputIds.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
@@ -519,25 +534,31 @@ async function loadCuisineTypes() {
         
         // 降级方案: 使用核心分类
         const fallbackCategories = {
-            "小吃快餐": ["快餐简餐", "小吃", "麻辣烫", "饺子", "炸鸡炸串", "卤味鸭脖", "包子", "黄焖鸡"],
-            "火锅": ["重庆火锅", "四川火锅", "老北京火锅", "潮汕牛肉火锅", "串串香", "鱼火锅", "小火锅"],
-            "川菜": ["川菜馆", "烤鱼", "干锅/香锅", "酸菜鱼/水煮鱼"],
-            "湘菜": ["湘菜", "土菜/农家菜"],
-            "烧烤烤串": ["烤串", "烧烤", "烤羊腿", "烤翅"],
-            "烤肉": ["韩式烤肉", "日式烤肉", "融合烤肉", "炙子烤肉"],
-            "咖啡": ["咖啡"],
-            "饮品店": ["茶饮果汁", "冰淇淋"],
-            "西餐": ["西餐", "牛排", "比萨", "意大利菜"],
-            "日本菜": ["日本料理", "寿司", "日式铁板烧"],
-            "韩式料理": ["韩式料理"],
-            "粤菜": ["粤菜馆", "茶餐厅", "烧腊", "潮汕菜"],
-            "北京菜": ["烤鸭", "京菜"],
+            "小吃快餐": ["麻辣烫", "饺子", "快餐简餐", "炸鸡炸串", "小吃", "卤味鸭脖", "包子", "黄焖鸡", "螺蛳粉"],
+            "湘菜": ["湘菜", "土菜/农家菜", "农家菜"],
+            "火锅": ["重庆火锅", "老北京火锅", "串串香", "鱼火锅", "小火锅", "四川火锅"],
+            "咖啡": ["咖啡", "咖啡厅"],
+            "面包甜点": ["甜品", "面包蛋糕", "面包烘焙"],
+            "饮品店": ["茶饮果汁", "冰淇淋", "饮品", "酸奶鲜奶"],
+            "烧烤烤串": ["烤串", "烧烤烤串", "烤羊腿", "烤翅"],
+            "川菜": ["烤鱼", "干锅/香锅", "川菜馆", "酸菜鱼/水煮鱼"],
+            "面馆/粉面馆": ["面馆", "粉面馆"],
+            "西餐": ["西餐", "牛排", "比萨", "意大利菜", "轻食沙拉"],
+            "北京菜": ["烤鸭", "京菜", "官府菜"],
+            "地方菜": ["徽菜", "鲁菜", "云南菜|滇菜", "新疆菜"],
+            "日本菜": ["日本料理", "寿司", "日式铁板烧", "日式料理"],
+            "家常菜/其他": ["家常菜", "特色菜", "其他中餐"],
+            "粤菜": ["茶餐厅", "粤菜馆", "烧腊", "潮汕菜"],
             "东北菜": ["东北菜"],
-            "面馆": ["面馆"],
+            "烤肉": ["韩式烤肉", "融合烤肉", "炙子烤肉"],
             "自助餐": ["自助餐", "烤肉自助", "火锅自助"],
-            "酒吧/酒馆": ["精酿啤酒", "鸡尾酒吧", "威士忌吧", "清吧", "小酒馆"],
-            "海鲜": ["海鲜餐厅"],
+            "海鲜/鱼鲜": ["海鲜", "海鲜餐厅", "肉蟹煲"],
+            "江浙菜": ["浙菜", "淮扬菜", "本帮菜"],
+            "韩式料理": ["韩式料理"],
+            "东南亚菜": ["泰国菜", "越南菜", "印度菜"],
+            "私房/创意菜": ["私房菜", "创意菜"],
             "小龙虾": ["小龙虾"],
+            "酒吧/酒馆": ["精酿啤酒", "鸡尾酒吧", "清吧", "小酒馆"],
         };
         categorySelect.innerHTML = '<option value="">请选择餐饮大类</option>';
         Object.keys(fallbackCategories).forEach(cat => {
@@ -583,7 +604,11 @@ function initCuisineSelector() {
 
 // ==================== 表单验证 ====================
 function validateInput(input) {
-    const errorSpan = input.parentElement.querySelector('.error-message');
+    let errorSpan = input.parentElement.querySelector('.error-message');
+    if (!errorSpan) {
+        const group = input.closest('.input-group');
+        errorSpan = group ? group.querySelector('.error-message') : null;
+    }
     if (!errorSpan) return true;
     
     const value = input.value.trim();
@@ -628,9 +653,9 @@ function clearError(input, errorSpan) {
 }
 
 function validateAllInputs() {
-    const inputIds = ['province-input', 'city-input', 'district-input', 'street-input', 'business-area-input', 
+    const inputIds = ['province-input', 'city-input', 'district-input', 'location-value-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
-                      'revenue-input', 'brand-input', 'income-input'];
+                      'revenue-input', 'brand-input'];
     
     let isValid = true;
     let firstInvalidInput = null;
@@ -655,14 +680,18 @@ function validateAllInputs() {
 
 // 清除所有错误提示
 function clearAllErrors() {
-    const inputIds = ['province-input', 'city-input', 'district-input', 'street-input', 'business-area-input', 
+    const inputIds = ['province-input', 'city-input', 'district-input', 'location-value-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
-                      'revenue-input', 'brand-input', 'income-input'];
+                      'revenue-input', 'brand-input'];
     
     inputIds.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
-            const errorSpan = input.parentElement.querySelector('.error-message');
+            let errorSpan = input.parentElement.querySelector('.error-message');
+            if (!errorSpan) {
+                const group = input.closest('.input-group');
+                errorSpan = group ? group.querySelector('.error-message') : null;
+            }
             if (errorSpan) {
                 clearError(input, errorSpan);
             }
@@ -702,11 +731,17 @@ async function performCalculation() {
     const city = document.getElementById('city-input').value.trim();
     const district = document.getElementById('district-input').value.trim();
     
+    // 根据定位方式设置门牌号或商圈
+    const locationType = document.getElementById('location-type-select').value;
+    const locationValue = document.getElementById('location-value-input').value.trim();
+    const floorValue = document.getElementById('floor-input')?.value.trim() || '';
+    
     const data = {
         city: city,
         district: district,
-        street_address: document.getElementById('street-input').value.trim(),
-        business_area: document.getElementById('business-area-input').value.trim(),
+        street_address: locationType === 'street' ? locationValue : '',
+        business_area: locationType === 'business_area' ? locationValue : '',
+        floor: floorValue,
         restaurant_name: document.getElementById('restaurant-name-input').value.trim(),
         cuisine_type: document.getElementById('cuisine-input').value.trim(),
         avg_price_per_person: parseFloat(document.getElementById('price-input').value),
@@ -719,8 +754,7 @@ async function performCalculation() {
         initial_stock_promotion_cost: parseFloat(document.getElementById('stock-promotion-input').value) || 0,
         search_radius: parseInt(document.querySelector('.radius-btn.active')?.dataset.radius || '5000'),
         competitors_within_5km: null,
-        brand_influence_score: parseInt(document.getElementById('brand-input').value),
-        avg_income_within_5km: parseFloat(document.getElementById('income-input').value)
+        brand_influence_score: parseInt(document.getElementById('brand-input').value)
     };
     
     // 显示加载动画
@@ -925,11 +959,11 @@ function updateLoadingStep(message, progress) {
         } else {
             updateProcessStep(4, 'start', '商圈定级与坪效评估中...');
         }
-    } else if (message.includes('DeepSeek') || message.includes('AI')) {
+    } else if (message.includes('DeepSeek') || message.includes('AI') || message.includes('Lynsey')) {
         if (message.includes('✅')) {
-            updateProcessStep(5, 'success', message.replace('✅ ', ''));
+            updateProcessStep(5, 'success', message.replace('✅ ', '').replace(/DeepSeek/g, 'Lynsey'));
         } else {
-            updateProcessStep(5, 'start', 'DeepSeek AI深度分析中...');
+            updateProcessStep(5, 'start', 'Lynsey AI深度分析中...');
         }
     } else if (message.includes('报告')) {
         if (message.includes('✅')) {
@@ -1306,12 +1340,11 @@ async function showHistory() {
                     <div class="history-item-details" style="margin-top:2px">
                         <span class="detail-tag">装修 ¥${(record.renovation_cost || 0).toLocaleString()}</span>
                         <span class="detail-tag">设备 ¥${(record.equipment_cost || 0).toLocaleString()}</span>
-                        ${record.franchise_fee ? `<span class="detail-tag">加盟 ¥${record.franchise_fee.toLocaleString()}</span>` : ''}
+                        ${record.franchise_fee ? `<span class="detail-tag">加盟及转让 ¥${record.franchise_fee.toLocaleString()}</span>` : ''}
                         <span class="detail-tag">备货推广 ¥${(record.initial_stock_promotion_cost || 0).toLocaleString()}</span>
                         <span class="detail-tag">总投入 ¥${totalInvestment.toLocaleString()}</span>
                         <span class="detail-tag">竞品 ${record.competitors_within_5km ?? '-'}家</span>
-                        <span class="detail-tag">品牌力 ${record.brand_influence_score || '-'}/10</span>
-                        <span class="detail-tag">人均收入 ¥${(record.avg_income_within_5km || 0).toLocaleString()}</span>
+                        <span class="detail-tag">品牌 ${record.brand_influence_score >= 10 ? '全国连锁' : record.brand_influence_score >= 5 ? '区域连锁' : '无连锁'}</span>
                     </div>
                     <div class="history-item-details" style="margin-top:2px">
                         <span class="detail-tag">${record.competition_summary || '查看详情'}</span>

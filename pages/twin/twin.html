@@ -84,7 +84,7 @@
 
             <!-- 餐厅名称 -->
             <div class="form-group">
-                <label>餐厅名称 <span class="label-hint">(必填)</span></label>
+                <label>餐厅名称 <span class="label-hint">(选填，空则自动生成)</span></label>
                 <input type="text" id="restaurant-name" placeholder="如：湘味坊">
             </div>
 
@@ -203,6 +203,18 @@
                     </div>
                 </div>
 
+                <!-- 选址分析联动图表 -->
+                <div id="location-charts-section" class="chart-grid" style="display:none">
+                    <div class="chart-box">
+                        <h3>选址分析雷达图</h3>
+                        <div id="chart-loc-radar" class="chart-canvas"></div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>投资回报分析</h3>
+                        <div id="chart-loc-invest" class="chart-canvas"></div>
+                    </div>
+                </div>
+
                 <!-- 评论词云 -->
                 <div id="wordcloud-section" class="chart-box" style="display:none;margin-bottom:20px">
                     <h3>消费者评论词云</h3>
@@ -279,10 +291,6 @@
                     <input type="number" id="supp-area-sqm" placeholder="如：120">
                 </div>
                 <div class="supp-row">
-                    <label>期望月营收(元) *</label>
-                    <input type="number" id="supp-monthly-revenue" placeholder="如：300000">
-                </div>
-                <div class="supp-row">
                     <label>装修费(元)</label>
                     <input type="number" id="supp-renovation" placeholder="如：200000" value="0">
                 </div>
@@ -291,7 +299,7 @@
                     <input type="number" id="supp-equipment" placeholder="如：100000" value="0">
                 </div>
                 <div class="supp-row">
-                    <label>加盟费(元)</label>
+                    <label>加盟及转让费(元)</label>
                     <input type="number" id="supp-franchise" placeholder="如有" value="0">
                 </div>
                 <div class="supp-row">
@@ -299,12 +307,12 @@
                     <input type="number" id="supp-stock-promo" placeholder="如：50000" value="0">
                 </div>
                 <div class="supp-row">
-                    <label>品牌影响力(1-10) *</label>
-                    <input type="number" id="supp-brand" min="1" max="10" value="5">
-                </div>
-                <div class="supp-row">
-                    <label>5km人均月收入(元) *</label>
-                    <input type="number" id="supp-income" placeholder="如：12000" value="12000">
+                    <label>品牌影响力 *</label>
+                    <select id="supp-brand">
+                        <option value="10">全国连锁</option>
+                        <option value="5" selected>区域连锁</option>
+                        <option value="0">无连锁</option>
+                    </select>
                 </div>
             </div>
             <button id="supp-submit-btn" class="btn-primary" style="width:100%;margin-top:14px;padding:10px;font-size:14px" onclick="submitLocationSupplement()">
@@ -329,6 +337,6 @@
     <script src="../../js/config.js"></script>
     <script src="../../js/auth.js"></script>
     <script src="../../js/common.js"></script>
-    <script src="twin.js?v=4"></script>
+    <script src="twin.js?v=5"></script>
 </body>
 </html>
