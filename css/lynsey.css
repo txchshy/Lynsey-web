@@ -266,6 +266,57 @@ header h1 {
     box-shadow: 0 8px 32px 0 var(--glass-shadow);
 }
 
+/* 置灰未开发模块 */
+.module-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: grayscale(100%) brightness(0.5);
+}
+
+.module-disabled .module-title {
+    position: relative;
+}
+
+/* 置灰按钮样式 */
+.btn-disabled {
+    opacity: 0.4 !important;
+    filter: grayscale(100%) !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    position: relative;
+}
+
+.btn-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(255, 165, 0, 0.3);
+    border: 1px solid rgba(255, 165, 0, 0.5);
+    border-radius: 8px;
+    color: #ffa500;
+    margin-left: 6px;
+    font-weight: 500;
+}
+
+.coming-soon-badge {
+    display: inline-block;
+    font-size: 12px;
+    padding: 3px 10px;
+    background: rgba(255, 165, 0, 0.3);
+    border: 1px solid rgba(255, 165, 0, 0.6);
+    border-radius: 12px;
+    color: #ffa500;
+    margin-left: 8px;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(255, 165, 0, 0.8);
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 /* 可点击模块的悬停效果 */
 .clickable-module:hover {
     transform: translateY(-4px);
@@ -886,8 +937,9 @@ header h1 {
 }
 
 .main-map {
-    flex: 2;
-    min-height: 360px;
+    flex: 1;
+    min-height: 240px;
+    max-height: 280px;
     background: var(--glass-bg);
     border-radius: 14px;
     border: 1px solid var(--glass-border);
@@ -898,9 +950,8 @@ header h1 {
 }
 
 .report-window-module {
-    flex: 1;
-    min-height: 200px;
-    max-height: 460px;
+    flex: 2.5;
+    min-height: 520px;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: 14px;
@@ -1558,25 +1609,80 @@ header h1 {
 
 .history-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--glass-border);
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.history-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid rgba(0, 242, 254, 0.22);
+    border-radius: 999px;
+    background: rgba(0, 242, 254, 0.08);
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.25s ease;
+}
+
+.history-select-all input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--neon-cyan);
+}
+
+.history-select-all:hover {
+    background: rgba(0, 242, 254, 0.14);
+    border-color: rgba(0, 242, 254, 0.45);
+}
+
+.batch-delete-btn {
+    padding: 7px 14px;
+    border: 1px solid rgba(255, 77, 79, 0.45);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255, 77, 79, 0.18), rgba(255, 77, 79, 0.08));
+    color: #ffb4b4;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 0 0 1px rgba(255, 77, 79, 0.08) inset;
+}
+
+.batch-delete-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(255, 77, 79, 0.28), rgba(255, 77, 79, 0.16));
+    border-color: rgba(255, 77, 79, 0.72);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(255, 77, 79, 0.12);
+}
+
+.batch-delete-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .history-header h3 {
     font-size: 18px;
     color: var(--neon-cyan);
     margin: 0;
+    flex-shrink: 0;
 }
 
 .close-btn {
-    width: 28px;
-    height: 28px;
-    background: rgba(255, 77, 79, 0.2);
-    border: 1px solid rgba(255, 77, 79, 0.4);
-    border-radius: 6px;
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 77, 79, 0.14);
+    border: 1px solid rgba(255, 77, 79, 0.38);
+    border-radius: 999px;
     color: #ff4d4f;
     cursor: pointer;
     display: flex;
@@ -1586,8 +1692,9 @@ header h1 {
 }
 
 .close-btn:hover {
-    background: rgba(255, 77, 79, 0.3);
-    transform: scale(1.1);
+    background: rgba(255, 77, 79, 0.26);
+    border-color: rgba(255, 77, 79, 0.7);
+    transform: scale(1.08);
 }
 
 .history-content {
@@ -1602,6 +1709,7 @@ header h1 {
 }
 
 .history-item {
+    position: relative;
     padding: 10px;
     background: rgba(10, 132, 255, 0.15);
     border: 1px solid var(--glass-border);
@@ -1621,6 +1729,7 @@ header h1 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    gap: 12px;
 }
 
 .history-address {
@@ -1638,6 +1747,57 @@ header h1 {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.history-item-select {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.history-item-select input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.history-checkbox-ui {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 242, 254, 0.45);
+    background: rgba(3, 24, 66, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    box-shadow: 0 0 0 1px rgba(0, 242, 254, 0.05) inset;
+    transition: all 0.2s ease;
+}
+
+.history-checkbox-ui svg {
+    opacity: 0;
+    transform: scale(0.7);
+    transition: all 0.2s ease;
+}
+
+.history-select-checkbox:checked + .history-checkbox-ui {
+    background: linear-gradient(135deg, rgba(0, 242, 254, 0.3), rgba(0, 153, 255, 0.55));
+    border-color: #00f2fe;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.28);
+}
+
+.history-select-checkbox:checked + .history-checkbox-ui svg {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .detail-tag {
@@ -1795,18 +1955,23 @@ header h1 {
 
 .history-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--glass-border);
     flex-shrink: 0;
+    gap: 12px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .history-header h3 {
     font-size: 20px;
     color: var(--neon-cyan);
     text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+    margin: 0;
+    flex-shrink: 0;
 }
 
 .history-content {
@@ -1829,6 +1994,12 @@ header h1 {
     transition: all 0.3s ease;
 }
 
+.history-item.selected {
+    border-color: rgba(0, 242, 254, 0.85);
+    background: rgba(0, 242, 254, 0.08);
+    box-shadow: 0 0 0 1px rgba(0, 242, 254, 0.2) inset, 0 0 18px rgba(0, 242, 254, 0.12);
+}
+
 .history-item:hover {
     background: rgba(3, 24, 66, 0.7);
     border-color: var(--neon-cyan);
@@ -1845,6 +2016,14 @@ header h1 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 6px;
+    gap: 12px;
+}
+
+.history-header-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .history-address {

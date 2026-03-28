@@ -11,14 +11,14 @@ async function loadBaiduMapAPI() {
         BAIDU_MAP_AK = data.ak;
         
         // 动态创建script标签加载百度地图
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_MAP_AK}`;
-        script.onload = function() {
+        window.onBaiduMapReady = function() {
             console.log('百度地图API加载成功');
-            // 地图加载完成后初始化中国地图
             initChinaMap();
         };
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.async = true;
+        script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_MAP_AK}&callback=onBaiduMapReady`;
         script.onerror = function() {
             console.error('百度地图API加载失败');
         };
@@ -146,6 +146,10 @@ function initUserMenu() {
 }
 
 // ==================== 中国地图初始化 ====================
+let baiduMapInstance = null;  // 百度地图实例
+let isShowingBaiduMap = false;  // 是否正在显示百度地图
+let currentReportData = null;  // 当前报告数据
+
 function initChinaMap() {
     const mapChart = echarts.init(document.getElementById('china-map'));
     window.mapChart = mapChart;
@@ -230,6 +234,220 @@ function initChinaMap() {
         });
 }
 
+// ==================== 百度地图切换功能 ====================
+function switchToBaiduMap(reportData) {
+    if (!reportData || !reportData.report) {
+        console.error('无效的报告数据');
+        return;
+    }
+    
+    currentReportData = reportData;
+    const mapContainer = document.getElementById('china-map');
+    
+    // 隐藏ECharts地图
+    if (window.mapChart) {
+        window.mapChart.dispose();
+        window.mapChart = null;
+    }
+    
+    // 清空容器并创建百度地图容器
+    mapContainer.innerHTML = '<div id="baidu-map-container" style="width:100%;height:100%;"></div>';
+    
+    // 等待DOM更新后初始化百度地图
+    setTimeout(() => {
+        initBaiduMapWithPOI(reportData);
+    }, 100);
+    
+    isShowingBaiduMap = true;
+    
+    // 添加返回按钮
+    addMapSwitchButton();
+}
+
+function initBaiduMapWithPOI(reportData) {
+    const report = reportData.report;
+    
+    // 从报告中获取地址信息
+    const address = report.street_address || report.business_area || '';
+    const city = report.city || '北京市';
+    const fullAddress = `${city}${report.district || ''}${address}`;
+    
+    // 创建百度地图实例
+    const mapContainer = document.getElementById('baidu-map-container');
+    if (!mapContainer) {
+        console.error('百度地图容器未找到');
+        return;
+    }
+    
+    baiduMapInstance = new BMap.Map(mapContainer);
+    
+    // 使用百度地图API进行地址解析
+    const myGeo = new BMap.Geocoder();
+    myGeo.getPoint(fullAddress, function(point) {
+        if (point) {
+            // 设置地图中心和缩放级别
+            baiduMapInstance.centerAndZoom(point, 16);
+            baiduMapInstance.enableScrollWheelZoom(true);
+            
+            // 添加地图控件
+            baiduMapInstance.addControl(new BMap.NavigationControl());
+            baiduMapInstance.addControl(new BMap.ScaleControl());
+            baiduMapInstance.addControl(new BMap.OverviewMapControl());
+            
+            // 添加选址位置标记(红色)
+            const marker = new BMap.Marker(point);
+            baiduMapInstance.addOverlay(marker);
+            
+            // 创建信息窗口
+            const infoWindow = new BMap.InfoWindow(`
+                <div style="padding:10px;min-width:200px;">
+                    <h4 style="margin:0 0 8px 0;color:#00b4ff;font-size:14px;">${report.restaurant_name || '选址位置'}</h4>
+                    <p style="margin:4px 0;font-size:12px;color:#666;">地址: ${fullAddress}</p>
+                    <p style="margin:4px 0;font-size:12px;color:#666;">菜系: ${report.cuisine_type || '-'}</p>
+                    <p style="margin:4px 0;font-size:12px;color:#666;">客单价: ¥${report.avg_price_per_person || 0}</p>
+                    <p style="margin:4px 0;font-size:12px;color:#666;">商圈等级: ${report.business_area_level || '-'}</p>
+                </div>
+            `, {
+                width: 250,
+                height: 150,
+                title: "选址信息"
+            });
+            
+            marker.addEventListener('click', function() {
+                baiduMapInstance.openInfoWindow(infoWindow, point);
+            });
+            
+            // 默认打开信息窗口
+            baiduMapInstance.openInfoWindow(infoWindow, point);
+            
+            // 添加附近餐厅POI标记(蓝色)
+            const competitorPois = report.competitor_pois || [];
+            if (competitorPois.length > 0) {
+                competitorPois.slice(0, 20).forEach((poi, index) => {
+                    // 根据距离计算大致位置(简化处理)
+                    const distance = poi.distance || 500;
+                    const angle = (index / competitorPois.length) * 2 * Math.PI;
+                    const offsetLat = (distance / 111000) * Math.cos(angle);
+                    const offsetLng = (distance / (111000 * Math.cos(point.lat * Math.PI / 180))) * Math.sin(angle);
+                    
+                    const poiPoint = new BMap.Point(point.lng + offsetLng, point.lat + offsetLat);
+                    
+                    // 创建蓝色标记
+                    const poiIcon = new BMap.Icon(
+                        'data:image/svg+xml;base64,' + btoa(`
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">
+                                <path fill="#4169E1" d="M12 0C5.4 0 0 5.4 0 12c0 8 12 20 12 20s12-12 12-20c0-6.6-5.4-12-12-12z"/>
+                                <circle fill="white" cx="12" cy="12" r="6"/>
+                            </svg>
+                        `),
+                        new BMap.Size(24, 32),
+                        {
+                            anchor: new BMap.Size(12, 32)
+                        }
+                    );
+                    
+                    const poiMarker = new BMap.Marker(poiPoint, { icon: poiIcon });
+                    baiduMapInstance.addOverlay(poiMarker);
+                    
+                    // POI信息窗口
+                    const poiInfoWindow = new BMap.InfoWindow(`
+                        <div style="padding:8px;min-width:180px;">
+                            <h4 style="margin:0 0 6px 0;color:#4169E1;font-size:13px;">${poi.name || '餐厅'}</h4>
+                            <p style="margin:3px 0;font-size:11px;color:#666;">客单价: ${poi.price ? '¥' + poi.price : '-'}</p>
+                            <p style="margin:3px 0;font-size:11px;color:#666;">评分: ${poi.overall_rating || '-'}</p>
+                            <p style="margin:3px 0;font-size:11px;color:#666;">距离: ${poi.distance || '-'}m</p>
+                        </div>
+                    `, {
+                        width: 200,
+                        height: 100
+                    });
+                    
+                    poiMarker.addEventListener('click', function() {
+                        baiduMapInstance.openInfoWindow(poiInfoWindow, poiPoint);
+                    });
+                });
+            }
+            
+        } else {
+            console.error('地址解析失败:', fullAddress);
+            showMessage('地址解析失败,无法显示地图', 'error');
+        }
+    }, city);
+}
+
+function switchToChinaMap() {
+    const mapContainer = document.getElementById('china-map');
+    
+    // 销毁百度地图实例
+    if (baiduMapInstance) {
+        baiduMapInstance = null;
+    }
+    
+    // 清空容器
+    mapContainer.innerHTML = '';
+    
+    // 重新初始化中国地图
+    initChinaMap();
+    
+    isShowingBaiduMap = false;
+    
+    // 移除切换按钮
+    removeMapSwitchButton();
+}
+
+function addMapSwitchButton() {
+    // 检查是否已存在按钮
+    if (document.getElementById('map-switch-btn')) return;
+    
+    const button = document.createElement('button');
+    button.id = 'map-switch-btn';
+    button.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        返回中国地图
+    `;
+    button.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, rgba(0, 180, 255, 0.9), rgba(0, 100, 200, 0.9));
+        border: 1px solid rgba(0, 242, 254, 0.3);
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 4px 12px rgba(0, 180, 255, 0.3);
+        transition: all 0.3s ease;
+    `;
+    
+    button.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 6px 16px rgba(0, 180, 255, 0.4)';
+    });
+    
+    button.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = '0 4px 12px rgba(0, 180, 255, 0.3)';
+    });
+    
+    button.addEventListener('click', switchToChinaMap);
+    
+    document.getElementById('china-map').appendChild(button);
+}
+
+function removeMapSwitchButton() {
+    const button = document.getElementById('map-switch-btn');
+    if (button) {
+        button.remove();
+    }
+}
+
 // ==================== 选址运算台初始化 ====================
 function initCalculationWindow() {
     const calculateButton = document.getElementById('calculate-button');
@@ -260,6 +478,18 @@ function initCalculationWindow() {
     const closeHistoryBtn = document.getElementById('close-history-btn');
     if (closeHistoryBtn) {
         closeHistoryBtn.addEventListener('click', hideHistory);
+    }
+
+    const historySelectAll = document.getElementById('history-select-all');
+    if (historySelectAll) {
+        historySelectAll.addEventListener('change', function() {
+            toggleAllHistorySelection(this.checked);
+        });
+    }
+
+    const batchDeleteHistoryBtn = document.getElementById('batch-delete-history-btn');
+    if (batchDeleteHistoryBtn) {
+        batchDeleteHistoryBtn.addEventListener('click', batchDeleteHistoryReports);
     }
     
     // 关闭进度弹窗
@@ -297,7 +527,7 @@ function initCalculationWindow() {
     // 回车键触发运算
     const inputIds = ['city-input', 'district-input', 'location-value-input', 'floor-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
-                      'revenue-input', 'renovation-input', 'equipment-input', 'franchise-input',
+                      'renovation-input', 'equipment-input', 'franchise-input',
                       'stock-promotion-input', 'brand-input'];
     inputIds.forEach(id => {
         const input = document.getElementById(id);
@@ -655,7 +885,7 @@ function clearError(input, errorSpan) {
 function validateAllInputs() {
     const inputIds = ['province-input', 'city-input', 'district-input', 'location-value-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
-                      'revenue-input', 'brand-input'];
+                      'brand-input'];
     
     let isValid = true;
     let firstInvalidInput = null;
@@ -682,7 +912,7 @@ function validateAllInputs() {
 function clearAllErrors() {
     const inputIds = ['province-input', 'city-input', 'district-input', 'location-value-input',
                       'cuisine-category-input', 'cuisine-input', 'price-input', 'rent-input', 'area-input', 
-                      'revenue-input', 'brand-input'];
+                      'brand-input'];
     
     inputIds.forEach(id => {
         const input = document.getElementById(id);
@@ -737,17 +967,19 @@ async function performCalculation() {
     const floorValue = document.getElementById('floor-input')?.value.trim() || '';
     
     const data = {
+        province: province,
         city: city,
         district: district,
         street_address: locationType === 'street' ? locationValue : '',
         business_area: locationType === 'business_area' ? locationValue : '',
         floor: floorValue,
         restaurant_name: document.getElementById('restaurant-name-input').value.trim(),
+        cuisine_category: document.getElementById('cuisine-category-input').value.trim(),
         cuisine_type: document.getElementById('cuisine-input').value.trim(),
         avg_price_per_person: parseFloat(document.getElementById('price-input').value),
         monthly_rent: parseFloat(document.getElementById('rent-input').value),
         area_sqm: parseFloat(document.getElementById('area-input').value),
-        estimated_monthly_revenue: parseFloat(document.getElementById('revenue-input').value),
+        // estimated_monthly_revenue 由后端计算，不再从前端传入
         renovation_cost: parseFloat(document.getElementById('renovation-input').value) || 0,
         equipment_cost: parseFloat(document.getElementById('equipment-input').value) || 0,
         franchise_fee: parseFloat(document.getElementById('franchise-input').value) || 0,
@@ -777,7 +1009,8 @@ async function performCalculation() {
         });
         
         if (!response.ok) {
-            throw new Error('分析请求失败');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || errorData.message || `分析请求失败 (HTTP ${response.status})`);
         }
         
         const reader = response.body.getReader();
@@ -1021,6 +1254,73 @@ function hideLoading() {
     if (viewProgressBtn) viewProgressBtn.style.display = 'none';
 }
 
+function normalizeReportText(value, preferredKeys = []) {
+    if (value === null || value === undefined) return '';
+
+    const keys = [...preferredKeys, 'analysis', 'competitive_environment', 'competition_summary'];
+
+    if (typeof value === 'object') {
+        for (const key of keys) {
+            const candidate = value[key];
+            if (typeof candidate === 'string' && candidate.trim()) {
+                return candidate.trim();
+            }
+        }
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch {
+            return String(value);
+        }
+    }
+
+    let text = String(value).trim();
+    if (!text) return '';
+
+    let stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    if (stripped.toLowerCase().startsWith('json')) {
+        stripped = stripped.slice(4).trim();
+    }
+
+    if (stripped.startsWith('{') && stripped.endsWith('}')) {
+        try {
+            const parsed = JSON.parse(stripped);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                for (const key of keys) {
+                    const candidate = parsed[key];
+                    if (typeof candidate === 'string' && candidate.trim()) {
+                        return candidate.trim();
+                    }
+                }
+                return JSON.stringify(parsed, null, 2);
+            }
+            if (typeof parsed === 'string') {
+                return parsed.trim();
+            }
+        } catch {
+            // ignore parse failure and continue with regex extraction
+        }
+    }
+
+    for (const key of keys) {
+        const match = stripped.match(new RegExp(`${key}\\s*["']?\\s*:\\s*["']([^"']+)["']`));
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+    }
+
+    return stripped;
+}
+
+function escapeHtml(text) {
+    return String(text || '').replace(/[&<>"]|'/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[ch] || ch));
+}
+
 // ==================== 报告显示 ====================
 function displayReport(result) {
     const reportDisplay = document.getElementById('report-display');
@@ -1033,6 +1333,9 @@ function displayReport(result) {
     
     // 存储当前报告ID
     window.currentReportId = result.report_id;
+
+    const competitionSummary = normalizeReportText(result.report.competition_summary, ['competitive_environment', 'competition_summary']);
+    const detailedAnalysis = normalizeReportText(result.report.detailed_analysis, ['analysis', 'detailed_analysis']);
     
     // 构建报告HTML
     let html = `
@@ -1040,7 +1343,7 @@ function displayReport(result) {
             <div class="report-summary">
                 <div class="summary-card">
                     <div class="card-label">竞争环境</div>
-                    <div class="card-value">${result.report.competition_summary || '分析中'}</div>
+                    <div class="card-value">${escapeHtml(competitionSummary || '分析中')}</div>
                 </div>
                 <div class="summary-card">
                     <div class="card-label">建议客单价</div>
@@ -1171,7 +1474,7 @@ function displayReport(result) {
         <div class="report-section">
             <h4 class="section-title">详细分析</h4>
             <div class="analysis-content">
-                ${formatAnalysisText(result.report.detailed_analysis)}
+                ${formatAnalysisText(detailedAnalysis)}
             </div>
         </div>
         
@@ -1256,6 +1559,11 @@ function displayReport(result) {
             }
         }
     }, 100);
+    
+    // 自动切换到百度地图显示选址位置和附近餐厅
+    setTimeout(() => {
+        switchToBaiduMap(result);
+    }, 500);
 }
 
 // ==================== 结论性语句映射 ====================
@@ -1278,10 +1586,42 @@ function getConclusion(summary) {
 }
 
 // ==================== 历史记录 ====================
+let selectedHistoryReportIds = new Set();
+
+function syncHistoryItemSelection(reportId, checked) {
+    const historyItem = document.querySelector(`.history-item[data-report-id="${reportId}"]`);
+    const checkbox = document.querySelector(`.history-select-checkbox[data-report-id="${reportId}"]`);
+    if (historyItem) {
+        historyItem.classList.toggle('selected', checked);
+    }
+    if (checkbox) {
+        checkbox.checked = checked;
+    }
+}
+
+function refreshHistorySelectionState() {
+    const checkboxes = [...document.querySelectorAll('.history-select-checkbox')];
+    const nextSelectedIds = new Set();
+
+    checkboxes.forEach(cb => {
+        const reportId = cb.dataset.reportId;
+        if (cb.checked) {
+            nextSelectedIds.add(reportId);
+        }
+        syncHistoryItemSelection(reportId, cb.checked);
+    });
+
+    selectedHistoryReportIds = nextSelectedIds;
+    return checkboxes;
+}
+
 async function showHistory() {
     const historyList = document.getElementById('history-list');
     const historyContent = document.getElementById('history-content');
     const historyOverlay = document.getElementById('history-overlay');
+
+    selectedHistoryReportIds.clear();
+    updateHistoryBatchControls();
     
     if (!historyList || !historyContent) {
         console.error('历史记录元素未找到！');
@@ -1302,13 +1642,15 @@ async function showHistory() {
     historyContent.innerHTML = '<div class="loading-text">加载中...</div>';
     
     try {
-        const response = await fetch(`${API_BASE_URL}/history?limit=50`);
+        const _headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const response = await fetch(`${API_BASE_URL}/history?limit=50&_=${Date.now()}`, { headers: _headers, cache: 'no-store' });
         if (!response.ok) throw new Error('获取历史记录失败');
         
         const data = await response.json();
         
         if (!data.records || data.records.length === 0) {
             historyContent.innerHTML = '<div class="empty-message">暂无历史记录</div>';
+            updateHistoryBatchControls();
             return;
         }
         
@@ -1323,11 +1665,36 @@ async function showHistory() {
             });
             
             const totalInvestment = (record.monthly_rent || 0) * 12 + (record.renovation_cost || 0) + (record.equipment_cost || 0) + (record.franchise_fee || 0) + (record.initial_stock_promotion_cost || 0);
+            const competitionSummary = normalizeReportText(record.competition_summary, ['competitive_environment', 'competition_summary']);
+            const isSelected = selectedHistoryReportIds.has(record.report_id);
+            
+            // 主标题：店铺名（优先）或自动生成
+            const shopTitle = record.restaurant_name || 
+                `${record.cuisine_category || ''}${record.cuisine_type || ''}${record.province || ''}${record.city || ''}` || 
+                '未命名店铺';
+            
+            // 副标题：报告名称（省份+城市+市区+定位方式+序号）
+            const locationType = record.location_type || 'AI选址';
+            const reportName = `${record.province || ''}${record.city || ''}${record.district || ''}${locationType}${record.report_id ? '#' + record.report_id.slice(-6) : ''}`;
+            
             html += `
-                <div class="history-item" data-report-id="${record.report_id}">
+                <div class="history-item ${isSelected ? 'selected' : ''}" data-report-id="${record.report_id}">
                     <div class="history-item-header">
-                        <span class="history-address">${record.city || ''}${record.district || ''} ${record.street_address || '未知地址'}</span>
-                        <span class="history-date">${date}</span>
+                        <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                            <span class="history-address">${shopTitle}</span>
+                            <span class="history-report-name" style="font-size: 12px; color: #888;">${reportName}</span>
+                        </div>
+                        <div class="history-header-right">
+                            <span class="history-date">${date}</span>
+                            <label class="history-item-select">
+                                <input type="checkbox" class="history-select-checkbox" data-report-id="${record.report_id}" ${isSelected ? 'checked' : ''} onchange="toggleHistorySelection('${record.report_id}', this.checked)">
+                                <span class="history-checkbox-ui">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                     <div class="history-item-details">
                         <span class="detail-tag">${record.business_area || ''}</span>
@@ -1343,13 +1710,29 @@ async function showHistory() {
                         ${record.franchise_fee ? `<span class="detail-tag">加盟及转让 ¥${record.franchise_fee.toLocaleString()}</span>` : ''}
                         <span class="detail-tag">备货推广 ¥${(record.initial_stock_promotion_cost || 0).toLocaleString()}</span>
                         <span class="detail-tag">总投入 ¥${totalInvestment.toLocaleString()}</span>
-                        <span class="detail-tag">竞品 ${record.competitors_within_5km ?? '-'}家</span>
+                        ${(() => {
+                            // 使用search_radius字段判断用户选择的半径
+                            const searchRadius = record.search_radius || 5000;
+                            const radiusKm = searchRadius / 1000;
+                            
+                            // 根据半径获取对应的竞品数
+                            let competitorsCount = 0;
+                            if (searchRadius === 1000) {
+                                competitorsCount = record.competitors_within_1km ?? 0;
+                            } else if (searchRadius === 3000) {
+                                competitorsCount = record.competitors_within_3km ?? 0;
+                            } else {
+                                competitorsCount = record.competitors_within_5km ?? 0;
+                            }
+                            
+                            return `<span class="detail-tag">${radiusKm}km内${competitorsCount}家竞品</span>`;
+                        })()}
                         <span class="detail-tag">品牌 ${record.brand_influence_score >= 10 ? '全国连锁' : record.brand_influence_score >= 5 ? '区域连锁' : '无连锁'}</span>
                     </div>
                     <div class="history-item-details" style="margin-top:2px">
-                        <span class="detail-tag">${record.competition_summary || '查看详情'}</span>
+                        <span class="detail-tag">${competitionSummary || '查看详情'}</span>
                     </div>
-                    ${(() => { const c = getConclusion(record.competition_summary); return c.text ? `<div class="history-conclusion ${c.level}">${c.text}</div>` : ''; })()}
+                    ${(() => { const c = getConclusion(competitionSummary); return c.text ? `<div class="history-conclusion ${c.level}">${c.text}</div>` : ''; })()}
                     <div class="history-item-actions">
                         <button class="action-btn view-btn" onclick="toggleHistoryDetail('${record.report_id}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1380,10 +1763,12 @@ async function showHistory() {
         html += '</div>';
         
         historyContent.innerHTML = html;
+        updateHistoryBatchControls();
         
     } catch (error) {
         console.error('获取历史记录失败:', error);
         historyContent.innerHTML = `<div class="error-message">加载失败: ${error.message}</div>`;
+        updateHistoryBatchControls();
     }
 }
 
@@ -1394,6 +1779,64 @@ function hideHistory() {
     historyList.style.display = 'none';
     if (historyOverlay) {
         historyOverlay.classList.remove('show');
+    }
+}
+
+function updateHistoryBatchControls() {
+    const selectAllBtn = document.getElementById('history-select-all');
+    const batchDeleteBtn = document.getElementById('batch-delete-history-btn');
+    const checkboxes = refreshHistorySelectionState();
+    const selectedCount = selectedHistoryReportIds.size;
+
+    if (selectAllBtn) {
+        selectAllBtn.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+        selectAllBtn.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+    }
+    if (batchDeleteBtn) {
+        batchDeleteBtn.disabled = selectedCount === 0;
+    }
+}
+
+window.toggleHistorySelection = function(reportId, checked) {
+    syncHistoryItemSelection(reportId, checked);
+    updateHistoryBatchControls();
+};
+
+function toggleAllHistorySelection(checked) {
+    const checkboxes = [...document.querySelectorAll('.history-select-checkbox')];
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+        syncHistoryItemSelection(cb.dataset.reportId, checked);
+    });
+    updateHistoryBatchControls();
+}
+
+async function batchDeleteHistoryReports() {
+    const reportIds = [...selectedHistoryReportIds];
+    if (!reportIds.length) return;
+    if (!confirm(`确定删除选中的 ${reportIds.length} 条报告吗？此操作不可恢复。`)) return;
+
+    try {
+        const _h = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const response = await fetch(`${API_BASE_URL}/history/batch-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ..._h },
+            body: JSON.stringify({ report_ids: reportIds })
+        });
+
+        if (!response.ok) throw new Error('批量删除失败');
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            selectedHistoryReportIds.clear();
+            showMessage(result.message || `已删除 ${result.deleted_count || reportIds.length} 条报告`, 'success');
+            showHistory();
+        } else {
+            showMessage(result.detail || '批量删除失败', 'error');
+        }
+    } catch (error) {
+        console.error('批量删除报告失败:', error);
+        showMessage(`批量删除失败: ${error.message}`, 'error');
     }
 }
 
@@ -1455,7 +1898,8 @@ window.toggleHistoryDetail = async function(reportId) {
     // 加载报告详情
     try {
         console.log('开始加载报告详情...');
-        const response = await fetch(`${API_BASE_URL}/history/${reportId}`);
+        const _h = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const response = await fetch(`${API_BASE_URL}/history/${reportId}`, { headers: _h });
         if (!response.ok) throw new Error('获取报告详情失败');
         
         const result = await response.json();
@@ -1514,12 +1958,17 @@ window.deleteReport = async function(reportId) {
     }
     
     try {
+        const _h = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
         const response = await fetch(`${API_BASE_URL}/history/${reportId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: _h
         });
         
         if (!response.ok) throw new Error('删除失败');
         
+        selectedHistoryReportIds.delete(reportId);
+        updateHistoryBatchControls();
+
         // 延迟刷新历史记录列表，避免立即重新加载
         setTimeout(() => {
             showHistory();
@@ -1534,7 +1983,8 @@ window.deleteReport = async function(reportId) {
 window.downloadReport = async function(reportId) {
     try {
         // 调用PDF下载接口
-        const response = await fetch(`${API_BASE_URL}/download/${reportId}`);
+        const _h = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const response = await fetch(`${API_BASE_URL}/download/${reportId}`, { headers: _h });
         if (!response.ok) throw new Error('下载PDF失败');
         
         // 获取文件名（从响应头中获取）
@@ -1569,9 +2019,11 @@ window.downloadReport = async function(reportId) {
 // 格式化详细分析文本：句号后换行，首行缩进2字符
 function formatAnalysisText(text) {
     if (!text) return '暂无详细分析';
+
+    const normalized = normalizeReportText(text, ['analysis', 'detailed_analysis']);
     
     // 1. 将 **文字** 转为 <strong>
-    let html = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    let html = normalized.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     
     // 2. 按换行符分段
     const paragraphs = html.split(/\n+/);

@@ -22,6 +22,27 @@ function getModelCode(modelName) {
     return _modelCodeMap[modelName] || modelName;
 }
 
+function getAuthHeaders() {
+    return (typeof AUTH !== 'undefined' && AUTH.getToken())
+        ? { 'Authorization': `Bearer ${AUTH.getToken()}` }
+        : {};
+}
+
+let selectedHistorySimulationIds = new Set();
+
+function buildLocationCheckParams(source = null) {
+    const params = new URLSearchParams();
+    const city = (source?.city || document.getElementById('city-select').value).trim();
+    const district = (source?.district || document.getElementById('district-input').value).trim();
+    const address = (source?.address || document.getElementById('address-input').value).trim();
+    if (city && district && address) {
+        params.set('city', city);
+        params.set('district', district);
+        params.set('street_address', address);
+    }
+    return params.toString();
+}
+
 // ── 全局状态 ──
 let selectedLat = null;
 let selectedLng = null;
@@ -357,6 +378,10 @@ function initButtons() {
     });
     document.getElementById('download-report').addEventListener('click', downloadReport);
     document.getElementById('btn-history').addEventListener('click', openHistory);
+    document.getElementById('history-select-all').addEventListener('change', (e) => {
+        toggleAllHistorySelection(e.target.checked);
+    });
+    document.getElementById('batch-delete-history-btn').addEventListener('click', batchDeleteHistory);
     document.getElementById('close-history').addEventListener('click', () => {
         document.getElementById('history-modal').style.display = 'none';
     });
@@ -376,7 +401,8 @@ async function checkActiveSimulation() {
         if (!simId) return;
 
         // 查询后端任务状态
-        const resp = await fetch(`${TWIN_API}/simulate/${simId}/status`);
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${TWIN_API}/simulate/${simId}/status`, { headers });
         if (!resp.ok) { localStorage.removeItem('twin_active_simulation'); return; }
         const data = await resp.json();
 
@@ -508,9 +534,12 @@ async function startSimulation() {
 
     // 检查是否有选址分析报告（用于PDF联动）
     const restaurantName = document.getElementById('restaurant-name').value.trim();
-    if (restaurantName) {
+    const locationQuery = buildLocationCheckParams();
+    if (restaurantName || locationQuery) {
         try {
-            const checkResp = await fetch(`${LEVIATHAN_CONFIG.ANALYSIS_API}/check-location/${encodeURIComponent(restaurantName)}`);
+            const checkUrl = `${LEVIATHAN_CONFIG.ANALYSIS_API}/check-location/${encodeURIComponent(restaurantName || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+            const checkResp = await fetch(checkUrl, { headers: getAuthHeaders() });
+            if (!checkResp.ok) throw new Error(`HTTP ${checkResp.status}`);
             const checkData = await checkResp.json();
             if (!checkData.exists) {
                 // 弹窗让用户补充选址分析信息
@@ -519,7 +548,8 @@ async function startSimulation() {
                 return;
             }
         } catch (e) {
-            console.warn('选址报告检查失败，继续仿真:', e);
+            showToast(`选址报告检查失败: ${e.message}`, 'error');
+            return;
         }
     }
 
@@ -555,21 +585,29 @@ async function _doStartSimulation() {
         }
     }, 100);
 
-    // 餐厅名称：空时自动生成地址名
-    let restaurantName = document.getElementById('restaurant-name').value.trim();
-    if (!restaurantName) {
-        const district = document.getElementById('district-input').value.trim();
-        const address = document.getElementById('address-input').value.trim();
-        restaurantName = `${district}${address}`.replace(/\s+/g, '') || '未命名餐厅';
-    }
+    const province = document.getElementById('province-select').value.trim();
+    const city = document.getElementById('city-select').value.trim();
+    const cuisineCategory = document.getElementById('cuisine-category-select').value.trim();
+    const cuisineType = document.getElementById('cuisine-select').value.trim();
+
+    // 餐厅名称：空时按统一规则生成
+    const restaurantName = buildRestaurantTitle({
+        restaurantName: document.getElementById('restaurant-name').value.trim(),
+        cuisineCategory,
+        cuisineType,
+        province,
+        city,
+    });
 
     const payload = {
         restaurant_name: restaurantName,
+        province,
         city: document.getElementById('city-select').value,
         district: document.getElementById('district-input').value.trim(),
         address: document.getElementById('address-input').value.trim(),
         latitude: selectedLat,
         longitude: selectedLng,
+        cuisine_category: cuisineCategory,
         cuisine_type: document.getElementById('cuisine-select').value,
         avg_price: parseFloat(document.getElementById('avg-price').value),
     };
@@ -623,7 +661,8 @@ async function _doStartSimulation() {
 async function connectToStream(simulationId, fromIndex) {
     const btn = document.getElementById('start-simulation');
     try {
-        const response = await fetch(`${TWIN_API}/simulate/${simulationId}/stream?from_index=${fromIndex}`);
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const response = await fetch(`${TWIN_API}/simulate/${simulationId}/stream?from_index=${fromIndex}`, { headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const reader = response.body.getReader();
@@ -943,8 +982,7 @@ function renderResult(result) {
     document.getElementById('ai-advice').textContent = result.ai_advice || '';
 
     // 加载选址分析联动图表（雷达图+投资回报图）
-    const restName = result.restaurant?.name || '';
-    if (restName) loadLocationCharts(restName);
+    if (result.restaurant) loadLocationCharts(result.restaurant);
 }
 
 function renderStatCards(r) {
@@ -1069,7 +1107,8 @@ async function downloadReport() {
         return;
     }
     try {
-        const resp = await fetch(`${TWIN_API}/download/${_lastSimulationId}`);
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${TWIN_API}/download/${_lastSimulationId}`, { headers });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
@@ -1090,24 +1129,44 @@ async function downloadReport() {
 async function openHistory() {
     const modal = document.getElementById('history-modal');
     const list = document.getElementById('history-list');
+    selectedHistorySimulationIds.clear();
+    updateHistoryBatchControls();
     modal.style.display = 'flex';
     list.innerHTML = '<div class="history-loading">加载中...</div>';
 
     try {
-        const resp = await fetch(`${TWIN_API}/history?page=1&page_size=30`);
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${TWIN_API}/history?page=1&page_size=30`, { headers });
         const data = await resp.json();
         if (data.status !== 'success' || !data.items.length) {
             list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+            updateHistoryBatchControls();
             return;
         }
-        list.innerHTML = data.items.map(item => `
-            <div class="history-item">
+        list.innerHTML = data.items.map(item => {
+            // 主标题：店铺名（优先）或自动生成
+            const shopTitle = item.restaurant_name || 
+                `${item.cuisine_category || ''}${item.cuisine_type || ''}${item.province || ''}${item.city || ''}` || 
+                '未命名店铺';
+            
+            // 副标题：报告名称（省份+城市+市区+定位方式+序号）
+            const reportName = `${item.province || ''}${item.city || ''}${item.district || ''}数字孪生${item.simulation_id ? '#' + item.simulation_id.slice(-6) : ''}`;
+            
+            return `
+            <div class="history-item" data-simulation-id="${item.simulation_id}">
                 <div class="history-item-header" onclick="loadHistoryDetail('${item.simulation_id}')">
-                    <span class="history-name">${item.restaurant_name || '未命名'}</span>
-                    <span class="history-time">${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : ''}</span>
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                        <span class="history-name">${shopTitle}</span>
+                        <span class="history-report-name" style="font-size: 12px; color: #888;">${reportName}</span>
+                    </div>
+                    <div class="history-header-right">
+                        <span class="history-time">${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : ''}</span>
+                        <label class="history-item-select" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="history-select-checkbox" data-simulation-id="${item.simulation_id}" onclick="event.stopPropagation()" onchange="toggleHistorySelection('${item.simulation_id}', this.checked)">
+                        </label>
+                    </div>
                 </div>
                 <div class="history-item-meta" onclick="loadHistoryDetail('${item.simulation_id}')">
-                    <span>${item.city || ''} ${item.district || ''}</span>
                     <span>${item.cuisine_type || ''}</span>
                     <span>客单价 ${item.avg_price || '-'}元</span>
                     <span>均分 ${item.avg_score ? item.avg_score.toFixed(1) : '-'}</span>
@@ -1116,18 +1175,70 @@ async function openHistory() {
                 </div>
                 <button class="btn-delete-history" onclick="event.stopPropagation();deleteHistory('${item.simulation_id}',this)">&times; 删除</button>
             </div>
-        `).join('');
+        `;
+        }).join('');
+        updateHistoryBatchControls();
     } catch (e) {
         list.innerHTML = `<div class="history-empty">加载失败: ${e.message}</div>`;
     }
 }
 
+function updateHistoryBatchControls() {
+    const selectAll = document.getElementById('history-select-all');
+    const batchDeleteBtn = document.getElementById('batch-delete-history-btn');
+    const checkboxes = [...document.querySelectorAll('.history-select-checkbox')];
+    const selectedCount = selectedHistorySimulationIds.size;
+
+    if (selectAll) {
+        selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+        selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+    }
+    if (batchDeleteBtn) {
+        batchDeleteBtn.disabled = selectedCount === 0;
+    }
+}
+
+function syncHistoryItemSelection(simulationId, checked) {
+    const historyItem = document.querySelector(`.history-item[data-simulation-id="${simulationId}"]`);
+    const checkbox = document.querySelector(`.history-select-checkbox[data-simulation-id="${simulationId}"]`);
+    if (historyItem) {
+        historyItem.classList.toggle('selected', checked);
+    }
+    if (checkbox) {
+        checkbox.checked = checked;
+    }
+}
+
+window.toggleHistorySelection = function(simulationId, checked) {
+    if (checked) {
+        selectedHistorySimulationIds.add(simulationId);
+    } else {
+        selectedHistorySimulationIds.delete(simulationId);
+    }
+    syncHistoryItemSelection(simulationId, checked);
+    updateHistoryBatchControls();
+};
+
+function toggleAllHistorySelection(checked) {
+    const checkboxes = [...document.querySelectorAll('.history-select-checkbox')];
+    selectedHistorySimulationIds.clear();
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+        if (checked) selectedHistorySimulationIds.add(cb.dataset.simulationId);
+        syncHistoryItemSelection(cb.dataset.simulationId, checked);
+    });
+    updateHistoryBatchControls();
+}
+
 async function deleteHistory(simulationId, btnEl) {
     if (!confirm('确定删除该仿真记录？此操作不可撤销。')) return;
     try {
-        const resp = await fetch(`${TWIN_API}/history/${simulationId}`, { method: 'DELETE' });
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${TWIN_API}/history/${simulationId}`, { method: 'DELETE', headers });
         const data = await resp.json();
         if (data.status === 'success') {
+            selectedHistorySimulationIds.delete(simulationId);
+            updateHistoryBatchControls();
             btnEl.closest('.history-item').remove();
             showToast('已删除', 'success');
         } else {
@@ -1138,12 +1249,38 @@ async function deleteHistory(simulationId, btnEl) {
     }
 }
 
+async function batchDeleteHistory() {
+    const simulationIds = [...selectedHistorySimulationIds];
+    if (!simulationIds.length) return;
+    if (!confirm(`确定删除选中的 ${simulationIds.length} 条仿真记录？此操作不可撤销。`)) return;
+
+    try {
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${TWIN_API}/history/batch-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({ simulation_ids: simulationIds })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            selectedHistorySimulationIds.clear();
+            showToast(data.message || `已删除 ${data.deleted_count || simulationIds.length} 条`, 'success');
+            openHistory();
+        } else {
+            showToast(data.detail || '批量删除失败', 'error');
+        }
+    } catch (e) {
+        showToast(`批量删除失败: ${e.message}`, 'error');
+    }
+}
+
 async function loadHistoryDetail(simulationId) {
     document.getElementById('history-modal').style.display = 'none';
     try {
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
         const [detailResp, groupsResp] = await Promise.all([
-            fetch(`${TWIN_API}/history/${simulationId}`),
-            fetch(`${TWIN_API}/history/${simulationId}/groups`),
+            fetch(`${TWIN_API}/history/${simulationId}`, { headers }),
+            fetch(`${TWIN_API}/history/${simulationId}/groups`, { headers }),
         ]);
         const detail = await detailResp.json();
         const groupsData = await groupsResp.json();
@@ -1169,7 +1306,7 @@ async function loadHistoryDetail(simulationId) {
             progressEl.insertBefore(histTitle, document.getElementById('live-feedback'));
         }
         histTitle.style.display = 'block';
-        const restName = (detail.status === 'success' && detail.data?.restaurant?.name) || '';
+        const restName = (detail.status === 'success' && (detail.data?.display_title || detail.data?.restaurant?.name)) || '';
         histTitle.textContent = restName ? `历史仿真记录 - ${restName}` : '历史仿真记录';
 
         if (groupsData.status === 'success' && groupsData.groups) {
@@ -1216,7 +1353,7 @@ async function submitLocationSupplement() {
     const city = document.getElementById('city-select').value;
     const district = document.getElementById('district-input').value.trim();
     const address = document.getElementById('address-input').value.trim();
-    const cuisineType = document.getElementById('cuisine-select').value;
+    const cuisineType = document.getElementById('cuisine-select').value || document.getElementById('cuisine-category-select').value;
     const avgPrice = parseFloat(document.getElementById('avg-price').value);
 
     const businessArea = document.getElementById('supp-business-area').value.trim();
@@ -1237,6 +1374,7 @@ async function submitLocationSupplement() {
         restaurant_name: restaurantName,
         cuisine_type: cuisineType,
         avg_price_per_person: avgPrice,
+        avg_income_within_5km: 8000,
         monthly_rent: monthlyRent,
         area_sqm: areaSqm,
         estimated_monthly_revenue: monthlyRent * 20,
@@ -1302,32 +1440,98 @@ const LOC_COLORS = ['#00b4ff', '#a855f7', '#22c55e', '#f59e0b', '#ef4444', '#06b
 const LOC_CHART_THEME = {
     backgroundColor: 'transparent',
     textStyle: { color: '#94a3b8' },
-    legend: { textStyle: { color: '#94a3b8', fontSize: 11 }, top: 0 },
+    tooltip: {
+        backgroundColor: 'rgba(3, 24, 66, 0.96)',
+        borderColor: 'rgba(0, 242, 254, 0.22)',
+        borderWidth: 1,
+        textStyle: { color: '#e0e6ff' },
+        extraCssText: 'border-radius: 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);',
+    },
+    legend: { textStyle: { color: '#cbd5e1', fontSize: 11 }, top: 0, icon: 'roundRect' },
 };
 
-async function loadLocationCharts(restaurantName) {
+async function loadLocationCharts(restaurant) {
     const section = document.getElementById('location-charts-section');
     if (!section) return;
     try {
-        const resp = await fetch(`${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurantName)}`);
+        const locationQuery = buildLocationCheckParams(restaurant);
+        const url = `${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurant?.name || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+        const resp = await fetch(url, { headers: getAuthHeaders() });
         const data = await resp.json();
         if (data.status !== 'success' || !data.data) {
+            renderLocationSourceInfo(null, null);
             section.style.display = 'none';
             return;
         }
         section.style.display = '';
+        renderLocationSourceInfo(data.report_id, data.report_name);
         renderLocRadar(data.data);
         renderLocInvest(data.data);
     } catch (e) {
         console.warn('加载选址分析图表失败:', e);
+        renderLocationSourceInfo(null, null);
         section.style.display = 'none';
+    }
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"'/]/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#47;'
+    }[ch]));
+}
+
+function renderLocationSourceInfo(reportId, reportName) {
+    const el = document.getElementById('location-report-source');
+    if (!el) return;
+    if (!reportId) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+    const title = escapeHtml(reportName || '选址分析报告');
+    el.style.display = 'flex';
+    el.innerHTML = `
+        <div class="chart-source-note__text">
+            <span class="chart-source-note__label">当前采用报告</span>
+            <strong>${title}</strong>
+        </div>
+        <button type="button" class="chart-source-btn">下载报告</button>
+    `;
+    const btn = el.querySelector('.chart-source-btn');
+    if (btn) {
+        btn.addEventListener('click', () => downloadLocationReport(reportId, reportName));
+    }
+}
+
+async function downloadLocationReport(reportId, reportName) {
+    try {
+        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        const resp = await fetch(`${LEVIATHAN_CONFIG.LOCATION_API}/download/${encodeURIComponent(reportId)}`, { headers });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename\*=UTF-8''(.+)/);
+        a.download = match ? decodeURIComponent(match[1]) : `${reportName || '选址报告'}.pdf`;
+        a.href = url;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('报告下载成功', 'success');
+    } catch (e) {
+        showToast(`下载失败: ${e.message}`, 'error');
     }
 }
 
 function renderLocRadar(m) {
     const el = document.getElementById('chart-loc-radar');
     if (!el) return;
-    const chart = echarts.init(el);
+    const chart = echarts.getInstanceByDom(el) || echarts.init(el);
     const dims = [
         { key: 'grading_score', name: '商圈评分', max: 100 },
         { key: 'investment_score', name: '投资评分', max: 100 },
@@ -1338,21 +1542,41 @@ function renderLocRadar(m) {
     ];
     chart.setOption({
         ...LOC_CHART_THEME,
+        legend: { show: false },
+        tooltip: {
+            ...LOC_CHART_THEME.tooltip,
+            trigger: 'item',
+            formatter: (params) => {
+                const units = ['分', '分', '人/日', '元/日', '元/㎡', '次'];
+                const rows = dims.map((d, idx) => {
+                    const value = Number(params.value[idx] || 0).toLocaleString('zh-CN');
+                    return `${d.name}：<b>${value}</b>${units[idx]}`;
+                }).join('<br/>');
+                return `<div style="font-weight:600;margin-bottom:6px">${params.name}</div>${rows}`;
+            },
+        },
         radar: {
             indicator: dims.map(d => ({ name: d.name, max: d.max })),
             shape: 'polygon',
-            axisName: { color: '#94a3b8', fontSize: 10 },
-            splitArea: { areaStyle: { color: ['rgba(0,180,255,0.02)', 'rgba(0,180,255,0.04)'] } },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            center: ['50%', '56%'],
+            radius: '68%',
+            splitNumber: 4,
+            axisName: { color: '#cbd5e1', fontSize: 11, padding: [2, 4] },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            splitArea: { areaStyle: { color: ['rgba(0,180,255,0.015)', 'rgba(0,180,255,0.04)'] } },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
         },
         series: [{
             type: 'radar',
+            symbol: 'circle',
+            symbolSize: 7,
             data: [{
                 name: '选址指标',
                 value: dims.map(d => m[d.key] || 0),
-                lineStyle: { color: LOC_COLORS[0], width: 2 },
-                itemStyle: { color: LOC_COLORS[0] },
-                areaStyle: { color: LOC_COLORS[0], opacity: 0.15 },
+                lineStyle: { color: LOC_COLORS[0], width: 3, shadowBlur: 12, shadowColor: 'rgba(0, 180, 255, 0.45)' },
+                itemStyle: { color: '#ffffff', borderColor: LOC_COLORS[0], borderWidth: 2 },
+                areaStyle: { color: 'rgba(0, 180, 255, 0.22)' },
+                emphasis: { focus: 'series' },
             }],
         }],
     });
@@ -1362,7 +1586,7 @@ function renderLocRadar(m) {
 function renderLocInvest(m) {
     const el = document.getElementById('chart-loc-invest');
     if (!el) return;
-    const chart = echarts.init(el);
+    const chart = echarts.getInstanceByDom(el) || echarts.init(el);
     const totalInvest = Math.round((m.total_investment || 0) / 10000);
     const monthlyRev = Math.round((m.monthly_revenue || 0) / 10000);
     const monthlyProfit = Math.round((m.monthly_profit || 0) / 10000);
@@ -1370,36 +1594,91 @@ function renderLocInvest(m) {
 
     chart.setOption({
         ...LOC_CHART_THEME,
-        tooltip: { trigger: 'axis' },
-        grid: { left: 60, right: 60, top: 40, bottom: 30 },
+        legend: { show: false },
+        tooltip: {
+            ...LOC_CHART_THEME.tooltip,
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const point = params[0];
+                const head = `<div style="font-weight:600;margin-bottom:6px">${point.axisValue}</div>`;
+                const body = `${point.marker}<b>${point.axisValue}</b>：<b>${Number(point.value || 0).toLocaleString('zh-CN')}万</b>`;
+                const color = payback <= 12 ? '#22c55e' : payback <= 24 ? '#f59e0b' : '#ef4444';
+                return `${head}${body}<div style="margin-top:6px;color:#94a3b8">回报周期：<b style="color:${color}">${payback}</b> 个月</div>`;
+            },
+        },
+        grid: { left: 56, right: 24, top: 46, bottom: 36, containLabel: true },
         xAxis: {
             type: 'category',
             data: ['总投入', '月营收', '月利润'],
-            axisLabel: { color: '#94a3b8', fontSize: 11 },
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#cbd5e1', fontSize: 11, margin: 16 },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
         },
         yAxis: {
-            type: 'value', name: '万元',
-            axisLabel: { color: '#94a3b8', fontSize: 10 },
+            type: 'value',
+            name: '万元',
+            nameTextStyle: { color: '#94a3b8', fontSize: 11, padding: [0, 0, 0, 6] },
+            axisLabel: { color: '#94a3b8', fontSize: 10, formatter: value => `${value}` },
+            axisLine: { show: false },
             splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
         },
         series: [{
+            name: '投资回报',
             type: 'bar',
             data: [
-                { value: totalInvest, itemStyle: { color: LOC_COLORS[0] } },
-                { value: monthlyRev, itemStyle: { color: LOC_COLORS[2] } },
-                { value: monthlyProfit, itemStyle: { color: monthlyProfit >= 0 ? LOC_COLORS[2] : LOC_COLORS[4] } },
+                {
+                    value: totalInvest,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(0, 180, 255, 0.95)' },
+                            { offset: 1, color: 'rgba(0, 180, 255, 0.25)' },
+                        ]),
+                        borderRadius: [8, 8, 0, 0],
+                        shadowBlur: 12,
+                        shadowColor: 'rgba(0, 180, 255, 0.25)',
+                    },
+                },
+                {
+                    value: monthlyRev,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(34, 197, 94, 0.95)' },
+                            { offset: 1, color: 'rgba(34, 197, 94, 0.24)' },
+                        ]),
+                        borderRadius: [8, 8, 0, 0],
+                        shadowBlur: 12,
+                        shadowColor: 'rgba(34, 197, 94, 0.2)',
+                    },
+                },
+                {
+                    value: monthlyProfit,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: monthlyProfit >= 0 ? 'rgba(34, 197, 94, 0.95)' : 'rgba(239, 68, 68, 0.95)' },
+                            { offset: 1, color: monthlyProfit >= 0 ? 'rgba(34, 197, 94, 0.24)' : 'rgba(239, 68, 68, 0.24)' },
+                        ]),
+                        borderRadius: [8, 8, 0, 0],
+                        shadowBlur: 12,
+                        shadowColor: monthlyProfit >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    },
+                },
             ],
-            barWidth: '40%',
+            barWidth: 34,
             label: { show: true, position: 'top', color: '#e2e8f0', fontSize: 11, formatter: '{c}万' },
         }],
         graphic: [{
             type: 'text',
-            right: 16, bottom: 40,
+            right: 14, bottom: 12,
             style: {
-                text: `回报周期: ${payback}个月`,
+                text: `回报周期 ${payback} 个月`,
                 fill: payback <= 12 ? '#22c55e' : payback <= 24 ? '#f59e0b' : '#ef4444',
-                fontSize: 13, fontWeight: 'bold',
+                fontSize: 12, fontWeight: 600,
+                padding: [6, 12],
+                backgroundColor: 'rgba(0, 20, 60, 0.72)',
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: 'rgba(0, 242, 254, 0.18)',
             },
         }],
     });

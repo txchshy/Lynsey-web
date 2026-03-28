@@ -376,13 +376,84 @@ body {
     margin-bottom: 20px;
 }
 .chart-box {
-    padding: 16px;
-    background: rgba(0, 20, 60, 0.4);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
+    padding: 16px 16px 14px;
+    background: linear-gradient(180deg, rgba(0, 24, 66, 0.72), rgba(0, 18, 52, 0.58));
+    border: 1px solid rgba(0, 242, 254, 0.16);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
 }
-.chart-box h3 { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.chart-box--featured {
+    position: relative;
+    overflow: hidden;
+}
+.chart-box--featured::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 180, 255, 0.08), rgba(124, 58, 237, 0.04), transparent 68%);
+    pointer-events: none;
+}
+.chart-box h3 {
+    font-size: 14px;
+    color: #dbeafe;
+    margin-bottom: 10px;
+    letter-spacing: 0.2px;
+}
 .chart-canvas { width: 100%; height: 220px; }
+.chart-canvas--lg { height: 280px; }
+.chart-source-note {
+    grid-column: 1 / -1;
+    margin-top: -4px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 242, 254, 0.14);
+    border-radius: 12px;
+    background: rgba(0, 20, 60, 0.32);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.chart-source-note__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.chart-source-note__label {
+    font-size: 11px;
+    color: #7dd3fc;
+    letter-spacing: 0.2px;
+}
+.chart-source-note strong {
+    color: #e0e6ff;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+}
+.chart-source-btn {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 242, 254, 0.26);
+    background: linear-gradient(135deg, rgba(0, 180, 255, 0.18), rgba(124, 58, 237, 0.12));
+    color: #dbeafe;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.chart-source-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(0, 180, 255, 0.18);
+    border-color: rgba(0, 242, 254, 0.42);
+}
+.chart-source-btn:active {
+    transform: translateY(0);
+}
 
 /* AI建议 */
 .advice-section {
@@ -457,11 +528,27 @@ body {
     overflow: hidden;
 }
 .modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 14px 16px 12px;
     border-bottom: 1px solid var(--border-color);
 }
-.modal-header h2 { font-size: 16px; color: var(--accent-blue); }
+.modal-header-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+.modal-header h2 {
+    font-size: 15px;
+    color: var(--accent-blue);
+    margin: 0;
+    flex-shrink: 0;
+}
 .modal-close {
     background: none; border: none;
     color: var(--text-secondary); font-size: 22px; cursor: pointer;
@@ -474,22 +561,47 @@ body {
     color: var(--text-secondary); font-size: 14px;
 }
 .history-item {
+    position: relative;
     padding: 12px 14px; margin-bottom: 8px;
     background: rgba(0, 20, 60, 0.5);
     border: 1px solid rgba(0, 195, 255, 0.12);
     border-radius: 8px; cursor: pointer;
     transition: all 0.2s;
 }
+.history-item.selected {
+    border-color: rgba(0, 242, 254, 0.7);
+    background: rgba(0, 242, 254, 0.08);
+    box-shadow: 0 0 0 1px rgba(0, 242, 254, 0.12) inset;
+}
 .history-item:hover {
     border-color: var(--accent-blue);
     background: rgba(0, 20, 60, 0.7);
 }
 .history-item-header {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 6px;
+    gap: 12px;
 }
-.history-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.history-time { font-size: 11px; color: var(--text-secondary); }
+.history-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+}
+.history-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.history-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
 .history-item-meta {
     display: flex; flex-wrap: wrap; gap: 8px;
     font-size: 12px; color: var(--text-secondary);
@@ -498,6 +610,63 @@ body {
     padding: 1px 8px;
     background: rgba(0, 195, 255, 0.08);
     border-radius: 4px;
+}
+.history-select-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    user-select: none;
+}
+.history-select-all input,
+.history-item-select input {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent-blue);
+}
+.history-item-select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.batch-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 98px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 77, 79, 0.68);
+    background: linear-gradient(135deg, rgba(255, 77, 79, 0.38), rgba(139, 0, 0, 0.22));
+    color: #ffe1e1;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.35px;
+    line-height: 1;
+    box-shadow: 0 0 0 1px rgba(255, 77, 79, 0.14) inset, 0 6px 16px rgba(255, 77, 79, 0.12);
+    transition: all 0.25s ease;
+}
+.batch-delete-btn svg {
+    flex-shrink: 0;
+}
+.batch-delete-btn span {
+    line-height: 1;
+}
+.batch-delete-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(255, 77, 79, 0.48), rgba(255, 77, 79, 0.22));
+    border-color: rgba(255, 77, 79, 0.9);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(255, 77, 79, 0.22);
+}
+.batch-delete-btn:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
 }
 .btn-delete-history {
     position: absolute; bottom: 8px; right: 8px;

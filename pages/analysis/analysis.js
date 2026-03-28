@@ -2,16 +2,37 @@
  * 历史记录分析对比 - 前端逻辑
  */
 const API = LEVIATHAN_CONFIG.ANALYSIS_API;
+const PAGE_MODE = new URLSearchParams(window.location.search).get('mode') || 'full';
+const IS_LOCATION_ONLY_PAGE = PAGE_MODE === 'location';
 let allGroups = [];
 let currentMode = 'single-location'; // single-location | single-twin | comprehensive
 let selectedIds = { location: new Set(), twin: new Set() };
 
+function getAuthHeaders() {
+    return (typeof AUTH !== 'undefined' && AUTH.getToken())
+        ? { 'Authorization': `Bearer ${AUTH.getToken()}` }
+        : {};
+}
+
 // ── 初始化 ──
 document.addEventListener('DOMContentLoaded', () => {
+    applyPageMode();
     initModeTabs();
     loadReports();
     document.getElementById('btn-compare').addEventListener('click', runCompare);
 });
+
+function applyPageMode() {
+    if (!IS_LOCATION_ONLY_PAGE) return;
+
+    const modeTabs = document.querySelector('.mode-tabs');
+    if (modeTabs) modeTabs.style.display = 'none';
+
+    document.title = '选址分析对比';
+
+    const navTitle = document.querySelector('.nav-title');
+    if (navTitle) navTitle.title = '选址分析对比';
+}
 
 // ── 模式切换 ──
 function initModeTabs() {
@@ -37,12 +58,15 @@ function initModeTabs() {
 // ── 加载报告 ──
 async function loadReports() {
     try {
-        const resp = await fetch(`${API}/reports`);
+        const resp = await fetch(`${API}/reports`, { headers: getAuthHeaders() });
+        if (!resp.ok) throw new Error(resp.status === 401 ? '未登录或登录已失效' : `HTTP ${resp.status}`);
         const data = await resp.json();
         if (data.status === 'success') {
             allGroups = data.groups;
             document.getElementById('total-badge').textContent = `${data.total_groups} 个地址`;
             renderGroupList();
+        } else {
+            document.getElementById('group-list').innerHTML = `<div class="loading-overlay">${data.detail || '暂无历史报告'}</div>`;
         }
     } catch (e) {
         document.getElementById('group-list').innerHTML = `<div class="loading-overlay">加载失败: ${e.message}</div>`;
@@ -58,55 +82,75 @@ function renderGroupList() {
     }
 
     let html = '';
+    
+    // 按店铺名重新分组
+    const shopGroups = {};
     for (const group of allGroups) {
         const locReports = group.location_reports || [];
         const twinReports = group.twin_reports || [];
-
+        
         // 根据模式过滤
         const showLoc = currentMode !== 'single-twin';
         const showTwin = currentMode !== 'single-location';
-        const totalVisible = (showLoc ? locReports.length : 0) + (showTwin ? twinReports.length : 0);
-        if (totalVisible === 0) continue;
+        
+        const reportsToProcess = [
+            ...(showLoc ? locReports.map(r => ({ ...r, type: 'location' })) : []),
+            ...(showTwin ? twinReports.map(r => ({ ...r, type: 'twin' })) : [])
+        ];
+        
+        for (const r of reportsToProcess) {
+            // 生成店铺名
+            const shopName = r.restaurant_name || 
+                `${r.cuisine_category || ''}${r.cuisine_type || ''}${r.province || ''}${r.city || ''}` || 
+                '未命名店铺';
+            
+            if (!shopGroups[shopName]) {
+                shopGroups[shopName] = [];
+            }
+            shopGroups[shopName].push(r);
+        }
+    }
+
+    // 渲染按店铺名分组的列表
+    for (const [shopName, reports] of Object.entries(shopGroups)) {
+        if (reports.length === 0) continue;
 
         html += `<div class="address-group open">
             <div class="address-group-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="arrow">▶</span>
-                <span>${group.address || '未知地址'}</span>
-                ${group.business_area ? `<span style="color:var(--text-dim);font-size:11px">${group.business_area}</span>` : ''}
-                <span class="count">${totalVisible} 条</span>
+                <span style="font-weight: 600;">${shopName}</span>
+                <span class="count">${reports.length} 条</span>
             </div>
             <div class="report-items">`;
 
-        if (showLoc) {
-            for (const r of locReports) {
-                const checked = selectedIds.location.has(r.report_id) ? 'checked' : '';
-                const sel = checked ? 'selected' : '';
-                const date = r.created_at ? new Date(r.created_at).toLocaleDateString('zh-CN') : '';
-                html += `<label class="report-item ${sel}" data-type="location" data-id="${r.report_id}">
-                    <input type="checkbox" ${checked} onchange="toggleSelect(this,'location','${r.report_id}')">
-                    <span class="tag-location">选址</span>
-                    <span class="report-meta">${r.cuisine_type} ¥${r.avg_price_per_person}</span>
-                    <span class="report-date">${date}</span>
-                </label>`;
-            }
-        }
-        if (showTwin) {
-            for (const r of twinReports) {
-                const checked = selectedIds.twin.has(r.simulation_id) ? 'checked' : '';
-                const sel = checked ? 'selected' : '';
-                const date = r.created_at ? new Date(r.created_at).toLocaleDateString('zh-CN') : '';
-                html += `<label class="report-item ${sel}" data-type="twin" data-id="${r.simulation_id}">
-                    <input type="checkbox" ${checked} onchange="toggleSelect(this,'twin','${r.simulation_id}')">
-                    <span class="tag-twin">孪生</span>
-                    <span class="report-meta">${r.restaurant_name || r.cuisine_type} ¥${r.avg_price || '-'}</span>
-                    <span class="report-date">${date}</span>
-                </label>`;
-            }
+        for (const r of reports) {
+            const isLocation = r.type === 'location';
+            const id = isLocation ? r.report_id : r.simulation_id;
+            const checked = selectedIds[r.type].has(id) ? 'checked' : '';
+            const sel = checked ? 'selected' : '';
+            const date = r.created_at ? new Date(r.created_at).toLocaleDateString('zh-CN') : '';
+            
+            // 副标题：报告名称（省份+城市+市区+定位方式+序号）
+            const locationType = isLocation ? (r.location_type || 'AI选址') : '数字孪生';
+            const reportName = `${r.province || ''}${r.city || ''}${r.district || ''}${locationType}${id ? '#' + id.slice(-6) : ''}`;
+            
+            const tagClass = isLocation ? 'tag-location' : 'tag-twin';
+            const tagText = isLocation ? '选址' : '孪生';
+            
+            html += `<label class="report-item ${sel}" data-type="${r.type}" data-id="${id}">
+                <input type="checkbox" ${checked} onchange="toggleSelect(this,'${r.type}','${id}')">
+                <span class="${tagClass}">${tagText}</span>
+                <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                    <span class="report-name" style="font-size: 13px; color: #ffffff;">${reportName}</span>
+                    <span class="report-date" style="font-size: 11px; color: #cbd5e1;">${date}</span>
+                </div>
+            </label>`;
         }
 
         html += '</div></div>';
     }
-    container.innerHTML = html;
+    
+    container.innerHTML = html || '<div class="loading-overlay">当前模式下暂无报告</div>';
 }
 
 // ── 勾选逻辑 ──
@@ -138,12 +182,13 @@ async function runCompare() {
     try {
         const resp = await fetch(`${API}/compare`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({
                 location_ids: [...selectedIds.location],
                 twin_ids: [...selectedIds.twin],
             }),
         });
+        if (!resp.ok) throw new Error(resp.status === 401 ? '未登录或登录已失效' : `HTTP ${resp.status}`);
         const data = await resp.json();
         if (data.status === 'success') {
             renderCompareResult(data);

@@ -35,6 +35,30 @@ function formatDateTime(isoString) {
 }
 
 /**
+ * 生成店铺名称（主标题）
+ * 规则：有店铺名用店铺名，否则用"餐饮大类+菜系类型+省份+城市"
+ */
+function buildRestaurantTitle({ restaurantName = '', cuisineCategory = '', cuisineType = '', province = '', city = '' } = {}) {
+    const clean = (value) => `${value || ''}`.trim();
+    const name = clean(restaurantName);
+    if (name) return name;
+
+    // 自动生成：餐饮大类+菜系类型+省份+城市
+    const parts = [cuisineCategory, cuisineType, province, city].map(clean).filter(Boolean);
+    return parts.join('') || '未命名店铺';
+}
+
+/**
+ * 生成报告名称（副标题）
+ * 格式：省份+城市+市区+定位方式+序号
+ */
+function buildReportName({ province = '', city = '', district = '', locationType = '', reportNumber = '' } = {}) {
+    const clean = (value) => `${value || ''}`.trim();
+    const parts = [province, city, district, locationType, reportNumber].map(clean).filter(Boolean);
+    return parts.join('') || '';
+}
+
+/**
  * 显示全局提示消息
  */
 function showToast(message, type = 'info', duration = 3000) {

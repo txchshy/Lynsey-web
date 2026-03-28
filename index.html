@@ -6,7 +6,8 @@
     <title>灵犀一指 (Lynsey) · 餐饮全链路决策系统</title>
     <script src="lib/echarts.min.js"></script>
     <!-- 百度地图API将通过后端动态加载 -->
-    <link rel="stylesheet" href="css/lynsey.css?v=1.3.4">
+    <link rel="stylesheet" href="css/common.css?v=1.0.0">
+    <link rel="stylesheet" href="css/lynsey.css?v=1.3.9">
 </head>
 <body>
     <div class="video-background">
@@ -100,12 +101,13 @@
                         </div>
                         
                         <div class="ai-actions">
-                            <button class="ai-btn primary">
+                            <button class="ai-btn primary btn-disabled" disabled>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <polygon points="10 8 16 12 10 16 10 8"></polygon>
                                 </svg>
                                 启动决策中枢
+                                <span class="btn-badge">开发中</span>
                             </button>
                         </div>
                     </div>
@@ -314,22 +316,21 @@
                         </div>
                         
                         <div class="audit-actions">
-                            <button class="audit-btn">
+                            <button class="audit-btn btn-disabled" disabled>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <polygon points="10 8 16 12 10 16 10 8"></polygon>
                                 </svg>
                                 启动营销工坊
+                                <span class="btn-badge">开发中</span>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 中央地图区域 -->
+            <!-- 中央面板区域 -->
             <div class="center-panel">
-                <div id="china-map" class="main-map"></div>
-                
                 <!-- 智能AI选址系统 -->
                 <div class="report-window-module">
                     <div class="report-window-title">
@@ -439,9 +440,9 @@
                                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                                     </svg>
-                                    店铺名称 <span class="required">*</span>
+                                    店铺名称
                                 </label>
-                                <input type="text" id="restaurant-name-input" placeholder="如：鸿宾楼(朝阳门店)" required>
+                                <input type="text" id="restaurant-name-input" placeholder="如：鸿宾楼(朝阳门店)">
                                 <span class="error-message"></span>
                             </div>
                             
@@ -508,19 +509,6 @@
                                     店内平米(㎡) <span class="required">*</span>
                                 </label>
                                 <input type="number" id="area-input" placeholder="如：120" min="10" max="10000" required>
-                                <span class="error-message"></span>
-                            </div>
-                            
-                            <!-- 左列 -->
-                            <div class="input-group compact">
-                                <label>
-                                    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                                    </svg>
-                                    期望月营收(元) <span class="required">*</span>
-                                </label>
-                                <input type="number" id="revenue-input" placeholder="如：300000" min="10000" max="10000000" required>
                                 <span class="error-message"></span>
                             </div>
                             
@@ -609,7 +597,7 @@
                                     </svg>
                                     历史记录
                                 </button>
-                                <button class="history-btn" onclick="window.location.href='/pages/analysis/'" style="background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(0,180,255,0.15));border-color:rgba(168,85,247,0.3)">
+                                <button class="history-btn" onclick="window.location.href='/pages/analysis/location.html'" style="background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(0,180,255,0.15));border-color:rgba(168,85,247,0.3)">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path>
                                     </svg>
@@ -629,6 +617,9 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- 中国地图 -->
+                <div id="china-map" class="main-map"></div>
             </div>
         </div>
     </div>
@@ -731,6 +722,11 @@
     <div id="history-list" class="history-list" style="display: none;">
         <div class="history-header">
             <h3>历史记录</h3>
+            <label class="history-select-all">
+                <input type="checkbox" id="history-select-all">
+                <span>全选</span>
+            </label>
+            <button id="batch-delete-history-btn" class="batch-delete-btn" disabled>批量删除</button>
             <button id="close-history-btn" class="close-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -743,7 +739,8 @@
     
     <script src="js/config.js?v=1.0.0"></script>
     <script src="js/auth.js?v=1.0.0"></script>
-    <script src="js/lynsey.js?v=1.3.0"></script>
+    <script src="js/common.js"></script>
+    <script src="js/lynsey.js?v=1.3.4"></script>
     <script>AUTH.renderUserMenu('user-menu-area');</script>
 </body>
 </html>
