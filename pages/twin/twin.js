@@ -23,9 +23,13 @@ function getModelCode(modelName) {
 }
 
 function getAuthHeaders() {
-    return (typeof AUTH !== 'undefined' && AUTH.getToken())
-        ? { 'Authorization': `Bearer ${AUTH.getToken()}` }
-        : {};
+    const token = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? AUTH.getToken() : null;
+    if (!token) {
+        console.warn('⚠️ 未找到认证token');
+        return {};
+    }
+    console.log('✅ 使用认证token:', token.substring(0, 20) + '...');
+    return { 'Authorization': `Bearer ${token}` };
 }
 
 let selectedHistorySimulationIds = new Set();
@@ -35,10 +39,14 @@ function buildLocationCheckParams(source = null) {
     const city = (source?.city || document.getElementById('city-select').value).trim();
     const district = (source?.district || document.getElementById('district-input').value).trim();
     const address = (source?.address || document.getElementById('address-input').value).trim();
+    const cuisineType = (source?.cuisine_type || document.getElementById('cuisine-select')?.value || '').trim();
     if (city && district && address) {
         params.set('city', city);
         params.set('district', district);
         params.set('street_address', address);
+    }
+    if (cuisineType) {
+        params.set('cuisine_type', cuisineType);
     }
     return params.toString();
 }
@@ -60,6 +68,9 @@ const CONFIG_API = LEVIATHAN_CONFIG.CONFIG_API;
 
 // ── 初始化 ──
 document.addEventListener('DOMContentLoaded', () => {
+    // 检查登录状态
+    if (!AUTH.requireLogin()) return;
+    
     updateTime();
     setInterval(updateTime, 1000);
     loadBaiduMapKey();
@@ -533,23 +544,41 @@ async function startSimulation() {
     }
 
     // 检查是否有选址分析报告（用于PDF联动）
+    // 注意：即使没有选址报告，也允许启动数字孪生仿真
     const restaurantName = document.getElementById('restaurant-name').value.trim();
     const locationQuery = buildLocationCheckParams();
     if (restaurantName || locationQuery) {
         try {
             const checkUrl = `${LEVIATHAN_CONFIG.ANALYSIS_API}/check-location/${encodeURIComponent(restaurantName || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
-            const checkResp = await fetch(checkUrl, { headers: getAuthHeaders() });
-            if (!checkResp.ok) throw new Error(`HTTP ${checkResp.status}`);
-            const checkData = await checkResp.json();
-            if (!checkData.exists) {
-                // 弹窗让用户补充选址分析信息
-                window._pendingTwinStart = true;
-                document.getElementById('location-supplement-modal').style.display = 'flex';
+            console.log('🔍 检查选址报告:', checkUrl);
+            const headers = getAuthHeaders();
+            console.log('📤 请求头:', headers);
+            const checkResp = await fetch(checkUrl, { headers });
+            console.log('📥 响应状态:', checkResp.status);
+            if (checkResp.status === 401) {
+                console.error('❌ 认证失败 (401)');
+                showToast('登录已过期，请重新登录', 'error');
+                setTimeout(() => AUTH.logout(), 1500);
                 return;
             }
+            if (!checkResp.ok) {
+                const errorText = await checkResp.text();
+                console.error('❌ 请求失败:', checkResp.status, errorText);
+                // 即使检查失败，也继续启动仿真
+                console.warn('⚠️ 选址报告检查失败，继续启动仿真');
+            } else {
+                const checkData = await checkResp.json();
+                console.log('✅ 选址报告检查结果:', checkData);
+                if (checkData.exists) {
+                    console.log('✅ 找到选址报告，将在PDF中联动显示');
+                } else {
+                    console.log('ℹ️ 未找到选址报告，仿真结果PDF将不包含选址分析数据');
+                }
+            }
         } catch (e) {
-            showToast(`选址报告检查失败: ${e.message}`, 'error');
-            return;
+            console.error('❌ 选址报告检查异常:', e);
+            // 即使检查异常，也继续启动仿真
+            console.warn('⚠️ 选址报告检查异常，继续启动仿真');
         }
     }
 
@@ -623,6 +652,17 @@ async function _doStartSimulation() {
             headers: headers,
             body: JSON.stringify(payload),
         });
+
+        if (response.status === 401) {
+            showToast('登录已过期，请重新登录', 'error');
+            setTimeout(() => AUTH.logout(), 1500);
+            progressEl.style.display = 'none';
+            document.getElementById('result-placeholder').style.display = 'flex';
+            clearInterval(simulationTimer);
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 启动数字孪生仿真`;
+            return;
+        }
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const result = await response.json();
@@ -1136,14 +1176,21 @@ async function openHistory() {
 
     try {
         const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
-        const resp = await fetch(`${TWIN_API}/history?page=1&page_size=30`, { headers });
+        // 加载更多记录（从30条增加到100条）
+        const resp = await fetch(`${TWIN_API}/history?page=1&page_size=100`, { headers });
         const data = await resp.json();
         if (data.status !== 'success' || !data.items.length) {
             list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
             updateHistoryBatchControls();
             return;
         }
-        list.innerHTML = data.items.map(item => {
+        
+        // 显示总记录数提示
+        const totalHint = data.total > data.items.length 
+            ? `<div style="padding: 10px; text-align: center; color: #888; font-size: 12px;">显示最近 ${data.items.length} 条记录，共 ${data.total} 条</div>`
+            : '';
+        
+        list.innerHTML = totalHint + data.items.map(item => {
             // 主标题：店铺名（优先）或自动生成
             const shopTitle = item.restaurant_name || 
                 `${item.cuisine_category || ''}${item.cuisine_type || ''}${item.province || ''}${item.city || ''}` || 
@@ -1367,23 +1414,26 @@ async function submitLocationSupplement() {
     btn.style.display = 'none';
     progress.style.display = 'block';
 
+    // 从菜系类型中提取餐饮大类
+    const cuisineCategory = document.getElementById('cuisine-category-select')?.value || '中餐馆';
+    
     const payload = {
-        city, district,
+        province: '北京市',  // 添加省份字段
+        city, 
+        district,
         street_address: address,
         business_area: businessArea,
         restaurant_name: restaurantName,
+        cuisine_category: cuisineCategory,  // 添加餐饮大类
         cuisine_type: cuisineType,
         avg_price_per_person: avgPrice,
-        avg_income_within_5km: 8000,
         monthly_rent: monthlyRent,
         area_sqm: areaSqm,
-        estimated_monthly_revenue: monthlyRent * 20,
         renovation_cost: parseFloat(document.getElementById('supp-renovation').value) || 0,
         equipment_cost: parseFloat(document.getElementById('supp-equipment').value) || 0,
         franchise_fee: parseFloat(document.getElementById('supp-franchise').value) || 0,
         initial_stock_promotion_cost: parseFloat(document.getElementById('supp-stock-promo').value) || 0,
         search_radius: 5000,
-        competitors_within_5km: null,
         brand_influence_score: parseInt(document.getElementById('supp-brand').value) || 5,
     };
 
@@ -1414,7 +1464,12 @@ async function submitLocationSupplement() {
                         if (event.type === 'progress') {
                             progress.innerHTML = `<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,180,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px"></span>${event.message}`;
                         } else if (event.type === 'complete') {
-                            showToast('选址分析完成，开始数字孪生仿真', 'success');
+                            const reportId = event.result?.report_id;
+                            if (reportId) {
+                                showToast('✅ 选址报告已生成并保存到历史记录，现在开始数字孪生仿真', 'success', 5000);
+                            } else {
+                                showToast('选址分析完成，开始数字孪生仿真', 'success');
+                            }
                         } else if (event.type === 'error') {
                             throw new Error(event.message);
                         }
@@ -1456,19 +1511,24 @@ async function loadLocationCharts(restaurant) {
     try {
         const locationQuery = buildLocationCheckParams(restaurant);
         const url = `${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurant?.name || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+        console.log('🔍 查询选址报告:', url);
+        console.log('📍 餐厅信息:', restaurant);
         const resp = await fetch(url, { headers: getAuthHeaders() });
         const data = await resp.json();
+        console.log('📊 选址报告查询结果:', data);
         if (data.status !== 'success' || !data.data) {
+            console.warn('⚠️ 未找到选址报告或数据为空');
             renderLocationSourceInfo(null, null);
             section.style.display = 'none';
             return;
         }
+        console.log('✅ 找到选址报告:', data.report_id, data.report_name);
         section.style.display = '';
         renderLocationSourceInfo(data.report_id, data.report_name);
         renderLocRadar(data.data);
         renderLocInvest(data.data);
     } catch (e) {
-        console.warn('加载选址分析图表失败:', e);
+        console.error('❌ 加载选址分析图表失败:', e);
         renderLocationSourceInfo(null, null);
         section.style.display = 'none';
     }
