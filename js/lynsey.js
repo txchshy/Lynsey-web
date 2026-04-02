@@ -1017,17 +1017,17 @@ async function performCalculation() {
         const decoder = new TextDecoder();
         let buffer = '';
         
-        // 设置60秒超时检测
+        // 设置180秒超时检测（商圈定级需要更长时间）
         const checkTimeout = () => {
             const now = Date.now();
-            if (now - lastProgressTime > 60000) {
-                // 超过60秒没有进度更新
+            if (now - lastProgressTime > 180000) {
+                // 超过180秒没有进度更新
                 reader.cancel();
                 throw new Error('分析超时，可能是数据库连接失败或服务异常');
             }
-            timeoutId = setTimeout(checkTimeout, 5000); // 每5秒检查一次
+            timeoutId = setTimeout(checkTimeout, 10000); // 每10秒检查一次
         };
-        timeoutId = setTimeout(checkTimeout, 5000);
+        timeoutId = setTimeout(checkTimeout, 10000);
         
         while (true) {
             const { done, value } = await reader.read();
@@ -1643,10 +1643,14 @@ async function showHistory() {
     
     try {
         const _headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        console.log('🔍 请求历史记录，headers:', _headers);
         const response = await fetch(`${API_BASE_URL}/history?limit=50&_=${Date.now()}`, { headers: _headers, cache: 'no-store' });
+        console.log('📥 响应状态:', response.status);
         if (!response.ok) throw new Error('获取历史记录失败');
         
         const data = await response.json();
+        console.log('📊 历史记录数据:', data);
+        console.log('📊 记录总数:', data.total, '返回记录数:', data.records?.length);
         
         if (!data.records || data.records.length === 0) {
             historyContent.innerHTML = '<div class="empty-message">暂无历史记录</div>';

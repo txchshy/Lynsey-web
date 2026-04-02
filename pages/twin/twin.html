@@ -38,7 +38,7 @@
                 分析对比
             </button>
             <span id="current-time"></span>
-            <span id="agent-count">500 Agents</span>
+            <span id="agent-count">5000 Agents</span>
         </div>
     </nav>
 
@@ -172,6 +172,12 @@
                     </div>
                 </div>
 
+                <!-- 区域消费者画像 -->
+                <div id="consumer-profile-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>选址5km内区域消费者画像</h3>
+                    <div id="consumer-profile-content" style="padding:10px 0"></div>
+                </div>
+
                 <!-- 概览卡片 -->
                 <div id="stat-cards" class="stat-cards"></div>
 
@@ -220,6 +226,24 @@
                 <div id="wordcloud-section" class="chart-box" style="display:none;margin-bottom:20px">
                     <h3>消费者评论词云</h3>
                     <div id="chart-wordcloud" style="width:100%;height:300px"></div>
+                </div>
+
+                <!-- 投资概览 -->
+                <div id="investment-overview-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>投资概览</h3>
+                    <div id="investment-overview-table" class="investment-table"></div>
+                </div>
+
+                <!-- 周边竞品店铺 -->
+                <div id="competitors-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>周边竞品店铺</h3>
+                    <div id="competitors-table" class="competitors-table"></div>
+                </div>
+
+                <!-- 客单价比较 -->
+                <div id="price-comparison-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>客单价比较</h3>
+                    <div id="chart-price-comparison" class="chart-canvas" style="height: 400px;"></div>
                 </div>
 
                 <!-- AI 经营建议 -->

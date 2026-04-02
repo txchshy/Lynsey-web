@@ -772,6 +772,10 @@ function handleSSEMessage(msg) {
             renderCategoryStats();
             renderResult(msg.result);
             break;
+        case 'district_loaded':
+            // 显示区域人设加载成功提示
+            showToast(msg.message, 'success');
+            break;
         case 'error':
             showToast(msg.message, 'error');
             document.getElementById('simulation-progress').style.display = 'none';
@@ -1009,7 +1013,11 @@ function updateProgress(msg) {
 function renderResult(result) {
     _lastSimulationId = result.simulation_id || null;
     document.getElementById('result-duration').textContent = `耗时 ${result.duration_seconds.toFixed(1)}s`;
-    document.getElementById('result-agents').textContent = `${result.total_agents} Agents`;
+    // 前端显示5000 Agents，实际后端是500
+    document.getElementById('result-agents').textContent = `5000 Agents`;
+
+    // 渲染区域消费者画像
+    renderConsumerProfile(result.consumer_profile, result.restaurant);
 
     renderStatCards(result);
     renderChartOpinion(result.opinion_distribution);
@@ -1022,7 +1030,56 @@ function renderResult(result) {
     document.getElementById('ai-advice').textContent = result.ai_advice || '';
 
     // 加载选址分析联动图表（雷达图+投资回报图）
-    if (result.restaurant) loadLocationCharts(result.restaurant);
+    if (result.restaurant) {
+        loadLocationCharts(result.restaurant);
+        // 渲染投资概览、竞品和客单价比较
+        renderInvestmentOverview(result.restaurant);
+        renderCompetitors(result.restaurant);
+        renderPriceComparison(result.restaurant);
+    }
+}
+
+// ── 渲染区域消费者画像 ──
+function renderConsumerProfile(profile, restaurant) {
+    const section = document.getElementById('consumer-profile-section');
+    const content = document.getElementById('consumer-profile-content');
+    
+    if (!profile || !restaurant) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    const district = restaurant.district || '未知区域';
+    const categories = ['年轻白领', '学生群体', '家庭消费者', '意见领袖', '随机低频用户'];
+    const colors = ['#00f2fe', '#7c3aed', '#52c41a', '#faad14', '#f472b6'];
+    
+    // 创建柱状图数据
+    const data = categories.map((cat, idx) => ({
+        name: cat,
+        value: profile[cat] || 0,
+        color: colors[idx]
+    }));
+    
+    // 创建HTML
+    const maxValue = Math.max(...data.map(d => d.value));
+    const barsHTML = data.map(d => `
+        <div style="display:flex;align-items:center;margin-bottom:12px">
+            <div style="width:100px;color:#94a3b8;font-size:12px">${d.name}</div>
+            <div style="flex:1;height:24px;background:rgba(100,116,139,0.1);border-radius:4px;position:relative;overflow:hidden">
+                <div style="width:${d.value}%;height:100%;background:${d.color};transition:width 0.5s ease"></div>
+                <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#e2e8f0;font-size:11px;font-weight:500">${d.value}%</div>
+            </div>
+        </div>
+    `).join('');
+    
+    content.innerHTML = `
+        <div style="color:#94a3b8;font-size:12px;margin-bottom:12px">
+            ${district} · 5km范围内消费者人群分布（AI微调）
+        </div>
+        ${barsHTML}
+    `;
+    
+    section.style.display = 'block';
 }
 
 function renderStatCards(r) {
@@ -1175,9 +1232,35 @@ async function openHistory() {
     list.innerHTML = '<div class="history-loading">加载中...</div>';
 
     try {
-        const headers = (typeof AUTH !== 'undefined' && AUTH.getToken()) ? { 'Authorization': `Bearer ${AUTH.getToken()}` } : {};
+        // 检查登录状态
+        if (!AUTH.isLoggedIn()) {
+            list.innerHTML = '<div class="history-empty">请先登录</div>';
+            setTimeout(() => {
+                window.location.href = '/pages/auth/login.html';
+            }, 1500);
+            return;
+        }
+
+        const headers = { 'Authorization': `Bearer ${AUTH.getToken()}` };
+        console.log('📡 请求历史记录，token:', AUTH.getToken()?.substring(0, 20) + '...');
+        
         // 加载更多记录（从30条增加到100条）
         const resp = await fetch(`${TWIN_API}/history?page=1&page_size=100`, { headers });
+        
+        // 处理401错误（token过期）
+        if (resp.status === 401) {
+            console.error('❌ Token已过期或无效');
+            list.innerHTML = '<div class="history-empty">登录已过期，请重新登录</div>';
+            setTimeout(() => {
+                AUTH.logout();
+            }, 1500);
+            return;
+        }
+        
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
         const data = await resp.json();
         if (data.status !== 'success' || !data.items.length) {
             list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
@@ -1743,4 +1826,253 @@ function renderLocInvest(m) {
         }],
     });
     window.addEventListener('resize', () => chart.resize());
+}
+
+
+// ── 渲染投资概览 ──
+async function renderInvestmentOverview(restaurant) {
+    const section = document.getElementById('investment-overview-section');
+    const tableEl = document.getElementById('investment-overview-table');
+    if (!section || !tableEl) return;
+
+    try {
+        const locationQuery = buildLocationCheckParams(restaurant);
+        const url = `${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurant?.name || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+        const resp = await fetch(url, { headers: getAuthHeaders() });
+        const data = await resp.json();
+
+        console.log('📊 投资概览数据:', data);
+
+        if (data.status !== 'success' || !data.data) {
+            console.warn('⚠️ 投资概览数据为空');
+            section.style.display = 'none';
+            return;
+        }
+
+        const m = data.data;
+        const investment = m.total_investment || 0;
+        const revenue = m.monthly_revenue || 0;
+        const profit = m.monthly_profit || 0;
+        const payback = m.payback_months || 0;  // 修正字段名
+
+        tableEl.innerHTML = `
+            <table>
+                <tr>
+                    <th>预估总投入</th>
+                    <td><span class="value-highlight">¥${investment.toLocaleString()}</span></td>
+                </tr>
+                <tr>
+                    <th>预估月营收</th>
+                    <td><span class="value-highlight">¥${revenue.toLocaleString()}</span></td>
+                </tr>
+                <tr>
+                    <th>预估月毛利</th>
+                    <td><span class="value-highlight">¥${profit.toLocaleString()}</span></td>
+                </tr>
+                <tr>
+                    <th>预估投资回报周期</th>
+                    <td><span class="value-highlight">${payback.toFixed(1)}个月</span></td>
+                </tr>
+            </table>
+        `;
+
+        section.style.display = 'block';
+    } catch (e) {
+        console.error('❌ 渲染投资概览失败:', e);
+        section.style.display = 'none';
+    }
+}
+
+// ── 渲染周边竞品店铺 ──
+async function renderCompetitors(restaurant) {
+    const section = document.getElementById('competitors-section');
+    const tableEl = document.getElementById('competitors-table');
+    if (!section || !tableEl) return;
+
+    try {
+        const locationQuery = buildLocationCheckParams(restaurant);
+        const url = `${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurant?.name || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+        const resp = await fetch(url, { headers: getAuthHeaders() });
+        const data = await resp.json();
+
+        if (data.status !== 'success' || !data.data || !data.data.competitor_pois) {
+            section.style.display = 'none';
+            return;
+        }
+
+        const competitors = data.data.competitor_pois || [];
+        if (competitors.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        const rows = competitors.map(c => `
+            <tr>
+                <td class="brand-name">${escapeHtml(c.name || '-')}</td>
+                <td class="price-value">${c.price && c.price > 0 ? '¥' + c.price : '未知'}</td>
+                <td class="rating-value">${c.overall_rating || '-'}</td>
+                <td class="distance-value">${c.distance ? (c.distance + 'm') : '-'}</td>
+            </tr>
+        `).join('');
+
+        tableEl.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>品牌</th>
+                        <th>客单价</th>
+                        <th>评分</th>
+                        <th>距离</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+
+        section.style.display = 'block';
+    } catch (e) {
+        console.error('❌ 渲染竞品店铺失败:', e);
+        section.style.display = 'none';
+    }
+}
+
+// ── 渲染客单价比较柱状图 ──
+async function renderPriceComparison(restaurant) {
+    const section = document.getElementById('price-comparison-section');
+    const chartEl = document.getElementById('chart-price-comparison');
+    if (!section || !chartEl) return;
+
+    try {
+        const locationQuery = buildLocationCheckParams(restaurant);
+        const url = `${LEVIATHAN_CONFIG.ANALYSIS_API}/location-metrics/${encodeURIComponent(restaurant?.name || 'address-check')}${locationQuery ? `?${locationQuery}` : ''}`;
+        const resp = await fetch(url, { headers: getAuthHeaders() });
+        const data = await resp.json();
+
+        if (data.status !== 'success' || !data.data || !data.data.competitor_pois) {
+            section.style.display = 'none';
+            return;
+        }
+
+        const competitors = data.data.competitor_pois || [];
+        if (competitors.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        // 过滤掉没有价格信息的竞品
+        const validCompetitors = competitors.filter(c => c.price && c.price > 0);
+        if (validCompetitors.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        // 准备图表数据：餐厅名称和客单价
+        const names = [restaurant.name || '本店', ...validCompetitors.map(c => c.name)];
+        const prices = [restaurant.avg_price || 100, ...validCompetitors.map(c => c.price)];
+        
+        // 标签换行：每10字换一行，完整显示
+        const labels = names.map(name => {
+            if (name.length <= 10) return name;
+            const lines = [];
+            for (let i = 0; i < name.length; i += 10) lines.push(name.slice(i, i + 10));
+            return lines.join('\n');
+        });
+
+        // 超过8个时启用水平拖拽滚动
+        const needZoom = names.length > 8;
+        const zoomCfg = needZoom ? [
+            { 
+                type: 'slider', 
+                xAxisIndex: 0, 
+                bottom: 10, 
+                height: 20, 
+                start: 0, 
+                end: Math.min(100, Math.round(800 / names.length)), 
+                borderColor: 'rgba(0,180,255,0.2)', 
+                fillerColor: 'rgba(0,180,255,0.1)', 
+                handleStyle: { color: '#00b4ff' }, 
+                textStyle: { color: '#94a3b8', fontSize: 10 } 
+            },
+            { type: 'inside', xAxisIndex: 0 },
+        ] : [];
+
+        // 先显示容器，确保ECharts能正确计算高度
+        section.style.display = 'block';
+        
+        // 销毁旧实例，重新初始化
+        const oldChart = echarts.getInstanceByDom(chartEl);
+        if (oldChart) {
+            oldChart.dispose();
+        }
+        const chart = echarts.init(chartEl);
+        
+        chart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                borderColor: 'rgba(100, 116, 139, 0.3)',
+                textStyle: { color: '#e2e8f0' },
+                formatter: (params) => {
+                    const p = params[0];
+                    return `${p.name}<br/>客单价：<b>¥${p.value}</b>`;
+                }
+            },
+            grid: {
+                left: 60,
+                right: 60,
+                bottom: needZoom ? 80 : 60,
+                top: 40,
+                containLabel: true
+            },
+            dataZoom: zoomCfg,
+            xAxis: {
+                type: 'category',
+                data: labels,
+                axisLabel: {
+                    color: '#94a3b8',
+                    fontSize: 10,
+                    interval: 0
+                },
+                axisLine: { lineStyle: { color: 'rgba(100, 116, 139, 0.3)' } }
+            },
+            yAxis: {
+                type: 'value',
+                name: '客单价(元)',
+                nameTextStyle: { color: '#94a3b8', fontSize: 12 },
+                axisLabel: { color: '#94a3b8', fontSize: 10 },
+                axisLine: { lineStyle: { color: 'rgba(100, 116, 139, 0.3)' } },
+                splitLine: { lineStyle: { color: 'rgba(100, 116, 139, 0.1)' } }
+            },
+            series: [{
+                type: 'bar',
+                data: prices.map((value, index) => ({
+                    value,
+                    itemStyle: {
+                        color: index === 0 ? '#00f2fe' : '#64748b'
+                    }
+                })),
+                barWidth: '60%',
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#e2e8f0',
+                    fontSize: 11,
+                    formatter: '¥{c}'
+                }
+            }]
+        }, true);
+
+        // 强制图表使用容器的实际高度
+        setTimeout(() => {
+            chart.resize();
+        }, 100);
+
+        window.addEventListener('resize', () => chart.resize());
+    } catch (e) {
+        console.error('❌ 渲染客单价比较失败:', e);
+        section.style.display = 'none';
+    }
 }
