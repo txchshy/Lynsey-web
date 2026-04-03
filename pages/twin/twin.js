@@ -925,7 +925,7 @@ function appendLiveFeedback(msg) {
     row.addEventListener('click', () => showGroupDetail(msg.group_label));
     row.innerHTML = `
         <td>${groupShort}</td>
-        <td>${getModelCode(msg.model)}</td>
+        <td>${msg.model}</td>
         <td><span class="${statusCls}">${statusText}</span></td>
         <td>${actions.view || 0}</td>
         <td>${actions.share || 0}</td>
@@ -951,7 +951,7 @@ function showGroupDetail(groupLabel) {
     const modal = document.getElementById('history-modal');
     const list = document.getElementById('history-list');
     modal.style.display = 'flex';
-    document.querySelector('.modal-header h2').textContent = `组详情 - ${groupLabel} (${getModelCode(data.model)})`;
+    document.querySelector('.modal-header h2').textContent = `组详情 - ${groupLabel} (${data.model})`;
     list.innerHTML = agents.map(a => {
         if (!a || typeof a !== 'object') return '';
         const acts = a.actions || {};
