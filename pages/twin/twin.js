@@ -479,8 +479,16 @@ async function togglePause() {
     if (!_currentSimulationId) return;
     const btn = document.getElementById('pause-simulation');
     try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (typeof AUTH !== 'undefined' && AUTH.getToken()) {
+            headers['Authorization'] = `Bearer ${AUTH.getToken()}`;
+        }
+        
         if (_isPaused) {
-            await fetch(`${TWIN_API}/resume/${_currentSimulationId}`, { method: 'POST' });
+            await fetch(`${TWIN_API}/resume/${_currentSimulationId}`, { 
+                method: 'POST',
+                headers: headers
+            });
             _timerStartTime = Date.now();
             _isPaused = false;
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> 暂停';
@@ -494,7 +502,10 @@ async function togglePause() {
                 }
             }, 100);
         } else {
-            await fetch(`${TWIN_API}/pause/${_currentSimulationId}`, { method: 'POST' });
+            await fetch(`${TWIN_API}/pause/${_currentSimulationId}`, { 
+                method: 'POST',
+                headers: headers
+            });
             _timerElapsed += Date.now() - _timerStartTime;
             _isPaused = true;
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 继续';
@@ -509,7 +520,15 @@ async function stopSimulation() {
     if (!_currentSimulationId) return;
     if (!confirm('确认终止当前仿真？已完成的组结果不会丢失。')) return;
     try {
-        await fetch(`${TWIN_API}/stop/${_currentSimulationId}`, { method: 'POST' });
+        const headers = { 'Content-Type': 'application/json' };
+        if (typeof AUTH !== 'undefined' && AUTH.getToken()) {
+            headers['Authorization'] = `Bearer ${AUTH.getToken()}`;
+        }
+        
+        await fetch(`${TWIN_API}/stop/${_currentSimulationId}`, { 
+            method: 'POST',
+            headers: headers
+        });
         showToast('仿真已终止', 'info');
         clearInterval(simulationTimer);
         localStorage.removeItem('twin_active_simulation');
@@ -529,6 +548,32 @@ async function stopSimulation() {
 
 // ── 启动仿真 ──
 async function startSimulation() {
+    // 检查是否有正在运行的仿真任务
+    if (_currentSimulationId) {
+        if (!confirm('检测到有正在运行的仿真任务，是否终止并开始新的仿真？')) {
+            return;
+        }
+        // 终止旧任务
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (typeof AUTH !== 'undefined' && AUTH.getToken()) {
+                headers['Authorization'] = `Bearer ${AUTH.getToken()}`;
+            }
+            
+            await fetch(`${TWIN_API}/stop/${_currentSimulationId}`, { 
+                method: 'POST',
+                headers: headers
+            });
+            showToast('已终止旧任务', 'info');
+            _currentSimulationId = null;
+            _isPaused = false;
+            clearInterval(simulationTimer);
+            localStorage.removeItem('twin_active_simulation');
+        } catch (e) {
+            console.error('终止旧任务失败:', e);
+        }
+    }
+    
     // 付费检查（管理员免费）
     if (typeof AUTH !== 'undefined') {
         if (!AUTH.isLoggedIn()) { window.location.href = '/pages/auth/login.html'; return; }
@@ -590,10 +635,23 @@ async function _doStartSimulation() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> 仿真中...';
 
+    // 清空旧的仿真结果
     document.getElementById('result-placeholder').style.display = 'none';
     document.getElementById('simulation-result').style.display = 'none';
     document.getElementById('category-boxes').innerHTML = '';
+    document.getElementById('progress-groups').innerHTML = '';
+    
+    // 清空消费者画像
+    const consumerSection = document.getElementById('consumer-profile-section');
+    if (consumerSection) {
+        consumerSection.style.display = 'none';
+        const content = document.getElementById('consumer-profile-content');
+        if (content) content.innerHTML = '';
+    }
+    
+    // 清空缓存
     Object.keys(_groupDetailCache).forEach(k => delete _groupDetailCache[k]);
+    
     const progressEl = document.getElementById('simulation-progress');
     progressEl.style.display = 'block';
     document.querySelector('.progress-header').style.display = '';
@@ -1027,6 +1085,11 @@ function renderResult(result) {
     renderChartVisit(result.visit_willingness);
     renderChartPriceAccept(result.price_acceptance);
     renderWordCloud(result.all_comments || []);
+    
+    // 渲染平台评论和低分评论
+    renderPlatformComments(result.agent_details || []);
+    renderLowRatingComments(result.agent_details || []);
+    
     document.getElementById('ai-advice').textContent = result.ai_advice || '';
 
     // 加载选址分析联动图表（雷达图+投资回报图）
@@ -1074,7 +1137,7 @@ function renderConsumerProfile(profile, restaurant) {
     
     content.innerHTML = `
         <div style="color:#94a3b8;font-size:12px;margin-bottom:12px">
-            ${district} · 5km范围内消费者人群分布（AI微调）
+            ${district} · 5km范围内消费者人群分布
         </div>
         ${barsHTML}
     `;
@@ -1906,10 +1969,17 @@ async function renderCompetitors(restaurant) {
             return;
         }
 
-        const rows = competitors.map(c => `
+        // 过滤掉没有价格信息的竞品（与客单价柱状图保持一致）
+        const validCompetitors = competitors.filter(c => c.price && c.price > 0);
+        if (validCompetitors.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        const rows = validCompetitors.map(c => `
             <tr>
                 <td class="brand-name">${escapeHtml(c.name || '-')}</td>
-                <td class="price-value">${c.price && c.price > 0 ? '¥' + c.price : '未知'}</td>
+                <td class="price-value">¥${c.price}</td>
                 <td class="rating-value">${c.overall_rating || '-'}</td>
                 <td class="distance-value">${c.distance ? (c.distance + 'm') : '-'}</td>
             </tr>
@@ -2075,4 +2145,149 @@ async function renderPriceComparison(restaurant) {
         console.error('❌ 渲染客单价比较失败:', e);
         section.style.display = 'none';
     }
+}
+
+
+// ── 渲染平台评论展示 ──
+function renderPlatformComments(agentDetails) {
+    const section = document.getElementById('platform-comments-section');
+    const listEl = document.getElementById('platform-comments-list');
+    
+    if (!agentDetails || agentDetails.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    // 筛选有评论的agent
+    const commentsData = agentDetails.filter(a => a.comment_text && a.comment_text.trim());
+    
+    if (commentsData.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    
+    // 初始化平台切换
+    let currentPlatform = 'all';
+    
+    const renderCommentsList = (platform) => {
+        let filtered = commentsData;
+        
+        // 根据平台筛选
+        if (platform !== 'all') {
+            filtered = commentsData.filter(a => {
+                const platformProfiles = a.platform_profiles;
+                if (!platformProfiles) return false;
+                const tags = platformProfiles.platform_tags || [];
+                return tags.includes(platform);
+            });
+        }
+        
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="comment-empty">该平台暂无评论</div>';
+            return;
+        }
+        
+        // 渲染评论列表
+        listEl.innerHTML = filtered.map(agent => {
+            const platformProfiles = agent.platform_profiles || {};
+            const platformTags = platformProfiles.platform_tags || [];
+            const rating = agent.rating || 0;
+            const ratingClass = rating <= 3 ? 'low' : 'high';
+            
+            // 平台标签显示
+            let platformTagsHtml = '';
+            if (platformTags.length > 0) {
+                platformTagsHtml = platformTags.map(tag => {
+                    const tagNames = {
+                        'douyin': '抖音',
+                        'xiaohongshu': '小红书',
+                        'dianping': '大众点评'
+                    };
+                    return `<span class="comment-platform-tag ${tag}">${tagNames[tag] || tag}</span>`;
+                }).join('');
+            }
+            
+            // 星级显示
+            const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+            
+            return `
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <div class="comment-user">
+                            <span class="comment-nickname">${escapeHtml(agent.nickname || agent.agent_id || '匿名')}</span>
+                            ${platformTagsHtml}
+                        </div>
+                        ${rating > 0 ? `<div class="comment-rating ${ratingClass}">
+                            <span class="comment-stars">${stars}</span>
+                            <span>${rating}分</span>
+                        </div>` : ''}
+                    </div>
+                    <div class="comment-text">${escapeHtml(agent.comment_text)}</div>
+                </div>
+            `;
+        }).join('');
+    };
+    
+    // 初始渲染
+    renderCommentsList(currentPlatform);
+    
+    // 绑定平台切换事件
+    const tabs = document.querySelectorAll('.platform-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentPlatform = tab.dataset.platform;
+            renderCommentsList(currentPlatform);
+        });
+    });
+}
+
+// ── 渲染低分评论展示 ──
+function renderLowRatingComments(agentDetails) {
+    const section = document.getElementById('low-rating-comments-section');
+    const listEl = document.getElementById('low-rating-comments-list');
+    
+    if (!agentDetails || agentDetails.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    // 筛选评分≤3分且有评论的agent
+    const lowRatingComments = agentDetails.filter(a => 
+        a.rating && a.rating <= 3 && a.comment_text && a.comment_text.trim()
+    );
+    
+    if (lowRatingComments.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    
+    // 按评分从低到高排序
+    lowRatingComments.sort((a, b) => a.rating - b.rating);
+    
+    // 渲染评论列表
+    listEl.innerHTML = lowRatingComments.map(agent => {
+        const rating = agent.rating;
+        const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        
+        return `
+            <div class="comment-item">
+                <div class="comment-header">
+                    <div class="comment-user">
+                        <span class="comment-nickname">${escapeHtml(agent.nickname || agent.agent_id || '匿名')}</span>
+                    </div>
+                    <div class="comment-rating low">
+                        <span class="comment-stars">${stars}</span>
+                        <span>${rating}分</span>
+                    </div>
+                </div>
+                <div class="comment-text">${escapeHtml(agent.comment_text)}</div>
+            </div>
+        `;
+    }).join('');
 }

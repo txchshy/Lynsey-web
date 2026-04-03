@@ -807,3 +807,152 @@ body {
     color: #94a3b8;
     font-size: 13px;
 }
+
+
+/* ── 平台评论展示 ── */
+.platform-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.platform-tab {
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.platform-tab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 242, 254, 0.3);
+}
+
+.platform-tab.active {
+    background: rgba(0, 242, 254, 0.15);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.comments-scroll-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.comments-scroll-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.comments-scroll-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.comments-scroll-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 242, 254, 0.3);
+    border-radius: 3px;
+}
+
+.comments-scroll-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 242, 254, 0.5);
+}
+
+.comment-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.comment-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(0, 242, 254, 0.2);
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.comment-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comment-nickname {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.comment-platform-tag {
+    padding: 2px 8px;
+    background: rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    border-radius: 4px;
+    font-size: 11px;
+    color: #a78bfa;
+}
+
+.comment-platform-tag.douyin {
+    background: rgba(255, 77, 79, 0.2);
+    border-color: rgba(255, 77, 79, 0.4);
+    color: #ff9999;
+}
+
+.comment-platform-tag.xiaohongshu {
+    background: rgba(255, 77, 79, 0.2);
+    border-color: rgba(255, 77, 79, 0.4);
+    color: #ff9999;
+}
+
+.comment-platform-tag.dianping {
+    background: rgba(250, 173, 20, 0.2);
+    border-color: rgba(250, 173, 20, 0.4);
+    color: #ffc53d;
+}
+
+.comment-rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.comment-rating.low {
+    color: var(--danger);
+}
+
+.comment-rating.high {
+    color: var(--success);
+}
+
+.comment-stars {
+    color: #faad14;
+}
+
+.comment-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.comment-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}

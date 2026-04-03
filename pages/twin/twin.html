@@ -228,6 +228,24 @@
                     <div id="chart-wordcloud" style="width:100%;height:300px"></div>
                 </div>
 
+                <!-- 平台评论展示 -->
+                <div id="platform-comments-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>平台评论展示</h3>
+                    <div class="platform-tabs">
+                        <button class="platform-tab active" data-platform="all">全部</button>
+                        <button class="platform-tab" data-platform="douyin">抖音</button>
+                        <button class="platform-tab" data-platform="xiaohongshu">小红书</button>
+                        <button class="platform-tab" data-platform="dianping">大众点评</button>
+                    </div>
+                    <div id="platform-comments-list" class="comments-scroll-list"></div>
+                </div>
+
+                <!-- 低分评论展示 -->
+                <div id="low-rating-comments-section" class="chart-box" style="display:none;margin-bottom:20px">
+                    <h3>低分评论展示 (≤3分)</h3>
+                    <div id="low-rating-comments-list" class="comments-scroll-list"></div>
+                </div>
+
                 <!-- 投资概览 -->
                 <div id="investment-overview-section" class="chart-box" style="display:none;margin-bottom:20px">
                     <h3>投资概览</h3>
