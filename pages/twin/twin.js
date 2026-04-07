@@ -2174,10 +2174,63 @@ function renderPlatformComments(agentDetails) {
         return;
     }
     
-    // 筛选有评论的agent
-    const commentsData = agentDetails.filter(a => a.comment_text && a.comment_text.trim());
+    // 将每个agent的多平台评论展开为独立的评论条目
+    const platformNames = {
+        'douyin': '抖音',
+        'xiaohongshu': '小红书',
+        'dianping': '大众点评',
+        'default': '默认'
+    };
     
-    if (commentsData.length === 0) {
+    const allComments = [];
+    agentDetails.forEach(agent => {
+        const comments = agent.comments;
+        const rating = agent.rating || 0;
+        
+        if (comments && typeof comments === 'object') {
+            // 新格式：comments 是对象 {platform: text}
+            Object.entries(comments).forEach(([platform, text]) => {
+                if (text && text.trim()) {
+                    allComments.push({
+                        agent_id: agent.agent_id,
+                        nickname: agent.nickname,
+                        rating: rating,
+                        platform: platform,
+                        comment_text: text,
+                        platform_profiles: agent.platform_profiles
+                    });
+                }
+            });
+        } else if (agent.comment_text && agent.comment_text.trim()) {
+            // 兼容旧格式：comment_text 是字符串
+            const platformProfiles = agent.platform_profiles || {};
+            const tags = platformProfiles.platform_tags || [];
+            // 如果有平台标签，为每个平台复制一条评论；否则标记为 default
+            if (tags.length > 0) {
+                tags.forEach(platform => {
+                    allComments.push({
+                        agent_id: agent.agent_id,
+                        nickname: agent.nickname,
+                        rating: rating,
+                        platform: platform,
+                        comment_text: agent.comment_text,
+                        platform_profiles: agent.platform_profiles
+                    });
+                });
+            } else {
+                allComments.push({
+                    agent_id: agent.agent_id,
+                    nickname: agent.nickname,
+                    rating: rating,
+                    platform: 'default',
+                    comment_text: agent.comment_text,
+                    platform_profiles: agent.platform_profiles
+                });
+            }
+        }
+    });
+    
+    if (allComments.length === 0) {
         section.style.display = 'none';
         return;
     }
@@ -2188,16 +2241,11 @@ function renderPlatformComments(agentDetails) {
     let currentPlatform = 'all';
     
     const renderCommentsList = (platform) => {
-        let filtered = commentsData;
+        let filtered = allComments;
         
         // 根据平台筛选
         if (platform !== 'all') {
-            filtered = commentsData.filter(a => {
-                const platformProfiles = a.platform_profiles;
-                if (!platformProfiles) return false;
-                const tags = platformProfiles.platform_tags || [];
-                return tags.includes(platform);
-            });
+            filtered = allComments.filter(c => c.platform === platform);
         }
         
         if (filtered.length === 0) {
@@ -2206,24 +2254,14 @@ function renderPlatformComments(agentDetails) {
         }
         
         // 渲染评论列表
-        listEl.innerHTML = filtered.map(agent => {
-            const platformProfiles = agent.platform_profiles || {};
-            const platformTags = platformProfiles.platform_tags || [];
-            const rating = agent.rating || 0;
+        listEl.innerHTML = filtered.map(comment => {
+            const rating = comment.rating || 0;
             const ratingClass = rating <= 3 ? 'low' : 'high';
             
             // 平台标签显示
-            let platformTagsHtml = '';
-            if (platformTags.length > 0) {
-                platformTagsHtml = platformTags.map(tag => {
-                    const tagNames = {
-                        'douyin': '抖音',
-                        'xiaohongshu': '小红书',
-                        'dianping': '大众点评'
-                    };
-                    return `<span class="comment-platform-tag ${tag}">${tagNames[tag] || tag}</span>`;
-                }).join('');
-            }
+            const platformTag = comment.platform !== 'default' 
+                ? `<span class="comment-platform-tag ${comment.platform}">${platformNames[comment.platform] || comment.platform}</span>`
+                : '';
             
             // 星级显示
             const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
@@ -2232,15 +2270,15 @@ function renderPlatformComments(agentDetails) {
                 <div class="comment-item">
                     <div class="comment-header">
                         <div class="comment-user">
-                            <span class="comment-nickname">${escapeHtml(extractNickname(agent))}</span>
-                            ${platformTagsHtml}
+                            <span class="comment-nickname">${escapeHtml(extractNickname(comment))}</span>
+                            ${platformTag}
                         </div>
                         ${rating > 0 ? `<div class="comment-rating ${ratingClass}">
                             <span class="comment-stars">${stars}</span>
                             <span>${rating}分</span>
                         </div>` : ''}
                     </div>
-                    <div class="comment-text">${escapeHtml(agent.comment_text)}</div>
+                    <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
                 </div>
             `;
         }).join('');
@@ -2271,10 +2309,33 @@ function renderLowRatingComments(agentDetails) {
         return;
     }
     
-    // 筛选评分≤3分且有评论的agent
-    const lowRatingComments = agentDetails.filter(a => 
-        a.rating && a.rating <= 3 && a.comment_text && a.comment_text.trim()
-    );
+    // 将多平台评论展开并筛选评分≤3分的
+    const lowRatingComments = [];
+    agentDetails.forEach(agent => {
+        if (!agent.rating || agent.rating > 3) return;
+        
+        const comments = agent.comments;
+        if (comments && typeof comments === 'object') {
+            // 新格式：取第一条评论用于低分展示
+            const firstComment = Object.values(comments).find(t => t && t.trim());
+            if (firstComment) {
+                lowRatingComments.push({
+                    agent_id: agent.agent_id,
+                    nickname: agent.nickname,
+                    rating: agent.rating,
+                    comment_text: firstComment
+                });
+            }
+        } else if (agent.comment_text && agent.comment_text.trim()) {
+            // 兼容旧格式
+            lowRatingComments.push({
+                agent_id: agent.agent_id,
+                nickname: agent.nickname,
+                rating: agent.rating,
+                comment_text: agent.comment_text
+            });
+        }
+    });
     
     if (lowRatingComments.length === 0) {
         section.style.display = 'none';
@@ -2287,22 +2348,22 @@ function renderLowRatingComments(agentDetails) {
     lowRatingComments.sort((a, b) => a.rating - b.rating);
     
     // 渲染评论列表
-    listEl.innerHTML = lowRatingComments.map(agent => {
-        const rating = agent.rating;
+    listEl.innerHTML = lowRatingComments.map(comment => {
+        const rating = comment.rating;
         const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
         
         return `
             <div class="comment-item">
                 <div class="comment-header">
                     <div class="comment-user">
-                        <span class="comment-nickname">${escapeHtml(extractNickname(agent))}</span>
+                        <span class="comment-nickname">${escapeHtml(extractNickname(comment))}</span>
                     </div>
                     <div class="comment-rating low">
                         <span class="comment-stars">${stars}</span>
                         <span>${rating}分</span>
                     </div>
                 </div>
-                <div class="comment-text">${escapeHtml(agent.comment_text)}</div>
+                <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
             </div>
         `;
     }).join('');
