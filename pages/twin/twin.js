@@ -2148,6 +2148,22 @@ async function renderPriceComparison(restaurant) {
 }
 
 
+// ── 从 agent_id 中提取昵称 ──
+function extractNickname(agent) {
+    // 优先使用 nickname 字段
+    if (agent.nickname && agent.nickname.trim()) {
+        return agent.nickname.trim();
+    }
+    // 否则从 agent_id 中提取（格式: "DINER-区域-编号 昵称"）
+    if (agent.agent_id) {
+        const match = agent.agent_id.match(/DINER-[^\s]+-\d+\s+(.+)/);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+    }
+    return '匿名';
+}
+
 // ── 渲染平台评论展示 ──
 function renderPlatformComments(agentDetails) {
     const section = document.getElementById('platform-comments-section');
@@ -2216,7 +2232,7 @@ function renderPlatformComments(agentDetails) {
                 <div class="comment-item">
                     <div class="comment-header">
                         <div class="comment-user">
-                            <span class="comment-nickname">${escapeHtml(agent.nickname || '匿名')}</span>
+                            <span class="comment-nickname">${escapeHtml(extractNickname(agent))}</span>
                             ${platformTagsHtml}
                         </div>
                         ${rating > 0 ? `<div class="comment-rating ${ratingClass}">
@@ -2279,7 +2295,7 @@ function renderLowRatingComments(agentDetails) {
             <div class="comment-item">
                 <div class="comment-header">
                     <div class="comment-user">
-                        <span class="comment-nickname">${escapeHtml(agent.nickname || '匿名')}</span>
+                        <span class="comment-nickname">${escapeHtml(extractNickname(agent))}</span>
                     </div>
                     <div class="comment-rating low">
                         <span class="comment-stars">${stars}</span>
