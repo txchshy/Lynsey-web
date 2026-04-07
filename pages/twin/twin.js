@@ -2216,7 +2216,7 @@ function renderPlatformComments(agentDetails) {
                 <div class="comment-item">
                     <div class="comment-header">
                         <div class="comment-user">
-                            <span class="comment-nickname">${escapeHtml(agent.nickname || agent.agent_id || '匿名')}</span>
+                            <span class="comment-nickname">${escapeHtml(agent.nickname || '匿名')}</span>
                             ${platformTagsHtml}
                         </div>
                         ${rating > 0 ? `<div class="comment-rating ${ratingClass}">
@@ -2279,7 +2279,7 @@ function renderLowRatingComments(agentDetails) {
             <div class="comment-item">
                 <div class="comment-header">
                     <div class="comment-user">
-                        <span class="comment-nickname">${escapeHtml(agent.nickname || agent.agent_id || '匿名')}</span>
+                        <span class="comment-nickname">${escapeHtml(agent.nickname || '匿名')}</span>
                     </div>
                     <div class="comment-rating low">
                         <span class="comment-stars">${stars}</span>
