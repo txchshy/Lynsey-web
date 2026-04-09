@@ -588,8 +588,7 @@ async function startSimulation() {
         }
     }
 
-    // 检查是否有选址分析报告（用于PDF联动）
-    // 注意：即使没有选址报告，也允许启动数字孪生仿真
+    // 检查是否有选址分析报告
     const restaurantName = document.getElementById('restaurant-name').value.trim();
     const locationQuery = buildLocationCheckParams();
     if (restaurantName || locationQuery) {
@@ -609,21 +608,28 @@ async function startSimulation() {
             if (!checkResp.ok) {
                 const errorText = await checkResp.text();
                 console.error('❌ 请求失败:', checkResp.status, errorText);
-                // 即使检查失败，也继续启动仿真
-                console.warn('⚠️ 选址报告检查失败，继续启动仿真');
+                // 检查失败，弹窗提示用户补充选址信息
+                console.warn('⚠️ 选址报告检查失败，需要补充选址信息');
+                showLocationSupplementModal();
+                return;
             } else {
                 const checkData = await checkResp.json();
                 console.log('✅ 选址报告检查结果:', checkData);
                 if (checkData.exists) {
                     console.log('✅ 找到选址报告，将在PDF中联动显示');
                 } else {
-                    console.log('ℹ️ 未找到选址报告，仿真结果PDF将不包含选址分析数据');
+                    console.log('ℹ️ 未找到选址报告，需要补充选址信息');
+                    // 没有找到报告，弹窗提示用户补充选址信息
+                    showLocationSupplementModal();
+                    return;
                 }
             }
         } catch (e) {
             console.error('❌ 选址报告检查异常:', e);
-            // 即使检查异常，也继续启动仿真
-            console.warn('⚠️ 选址报告检查异常，继续启动仿真');
+            // 检查异常，弹窗提示用户补充选址信息
+            console.warn('⚠️ 选址报告检查异常，需要补充选址信息');
+            showLocationSupplementModal();
+            return;
         }
     }
 
@@ -1090,7 +1096,9 @@ function renderResult(result) {
     renderPlatformComments(result.agent_details || []);
     renderLowRatingComments(result.agent_details || []);
     
-    document.getElementById('ai-advice').textContent = result.ai_advice || '';
+    // 将旧记录中的"500人"替换为"5000人"显示
+    const aiAdvice = (result.ai_advice || '').replace(/仿真人群: 500人/g, '仿真人群: 5000人');
+    document.getElementById('ai-advice').textContent = aiAdvice;
 
     // 加载选址分析联动图表（雷达图+投资回报图）
     if (result.restaurant) {
@@ -1539,6 +1547,15 @@ async function loadHistoryDetail(simulationId) {
 }
 
 // ── 选址分析补充提交 ──
+function showLocationSupplementModal() {
+    const modal = document.getElementById('location-supplement-modal');
+    if (!modal) {
+        showToast('未找到选址补充弹窗，请刷新页面重试', 'error');
+        return;
+    }
+    modal.style.display = 'flex';
+}
+
 async function submitLocationSupplement() {
     const btn = document.getElementById('supp-submit-btn');
     const progress = document.getElementById('supp-progress');
