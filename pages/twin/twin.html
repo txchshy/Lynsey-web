@@ -349,35 +349,35 @@
                 
                 <div class="supp-row">
                     <label>商圈商场 <span class="required-mark">*</span></label>
-                    <input type="text" id="supp-business-area" placeholder="如：望京SOHO">
+                    <input type="text" id="supp-business-area" placeholder="如：望京SOHO" required>
                 </div>
                 <div class="supp-row">
                     <label>月租金(元) <span class="required-mark">*</span></label>
-                    <input type="number" id="supp-monthly-rent" placeholder="如：15000">
+                    <input type="number" id="supp-monthly-rent" placeholder="如：15000" min="1000" required>
                 </div>
                 <div class="supp-row">
                     <label>店内面积(㎡) <span class="required-mark">*</span></label>
-                    <input type="number" id="supp-area-sqm" placeholder="如：120">
+                    <input type="number" id="supp-area-sqm" placeholder="如：120" min="10" required>
                 </div>
                 
                 <!-- 投资成本 -->
-                <div class="supp-section-title">💰 投资成本（选填）</div>
+                <div class="supp-section-title">💰 投资成本</div>
                 
                 <div class="supp-row">
-                    <label>装修费(元)</label>
-                    <input type="number" id="supp-renovation" placeholder="如：200000" value="0">
+                    <label>装修费(元) <span class="required-mark">*</span></label>
+                    <input type="number" id="supp-renovation" placeholder="如：200000" min="0" value="0" required>
                 </div>
                 <div class="supp-row">
-                    <label>设备采购费(元)</label>
-                    <input type="number" id="supp-equipment" placeholder="如：100000" value="0">
+                    <label>设备采购费(元) <span class="required-mark">*</span></label>
+                    <input type="number" id="supp-equipment" placeholder="如：100000" min="0" value="0" required>
                 </div>
                 <div class="supp-row">
                     <label>加盟及转让费(元)</label>
-                    <input type="number" id="supp-franchise" placeholder="如有" value="0">
+                    <input type="number" id="supp-franchise" placeholder="无则填0" min="0" value="0">
                 </div>
                 <div class="supp-row">
-                    <label>备货及推广费(元)</label>
-                    <input type="number" id="supp-stock-promo" placeholder="如：50000" value="0">
+                    <label>备货及推广费(元) <span class="required-mark">*</span></label>
+                    <input type="number" id="supp-stock-promo" placeholder="如：50000" min="0" value="0" required>
                 </div>
                 
                 <!-- 评级信息 -->
@@ -385,7 +385,7 @@
                 
                 <div class="supp-row">
                     <label>品牌影响力 <span class="required-mark">*</span></label>
-                    <select id="supp-brand">
+                    <select id="supp-brand" required>
                         <option value="10">全国连锁</option>
                         <option value="5" selected>区域连锁</option>
                         <option value="0">无连锁</option>
@@ -393,7 +393,7 @@
                 </div>
                 <div class="supp-row">
                     <label>动线评级 <span class="required-mark">*</span></label>
-                    <select id="supp-traffic-flow">
+                    <select id="supp-traffic-flow" required>
                         <option value="20">非常好</option>
                         <option value="10" selected>较好</option>
                         <option value="5">一般</option>
@@ -487,6 +487,6 @@
     <script src="../../js/config.js"></script>
     <script src="../../js/auth.js"></script>
     <script src="../../js/common.js"></script>
-    <script src="twin.js?v=20260409003"></script>
+    <script src="twin.js?v=20260409004"></script>
 </body>
 </html>
