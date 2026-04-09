@@ -1598,6 +1598,7 @@ async function submitLocationSupplement() {
         initial_stock_promotion_cost: parseFloat(document.getElementById('supp-stock-promo').value) || 0,
         search_radius: 5000,
         brand_influence_score: parseInt(document.getElementById('supp-brand').value) || 5,
+        traffic_flow_score: parseInt(document.getElementById('supp-traffic-flow').value) || 10,
     };
 
     try {

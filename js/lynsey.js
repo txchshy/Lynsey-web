@@ -986,7 +986,8 @@ async function performCalculation() {
         initial_stock_promotion_cost: parseFloat(document.getElementById('stock-promotion-input').value) || 0,
         search_radius: parseInt(document.querySelector('.radius-btn.active')?.dataset.radius || '5000'),
         competitors_within_5km: null,
-        brand_influence_score: parseInt(document.getElementById('brand-input').value)
+        brand_influence_score: parseInt(document.getElementById('brand-input').value),
+        traffic_flow_score: parseInt(document.getElementById('traffic-flow-input').value) || 10
     };
     
     // 显示加载动画
@@ -1732,6 +1733,7 @@ async function showHistory() {
                             return `<span class="detail-tag">${radiusKm}km内${competitorsCount}家竞品</span>`;
                         })()}
                         <span class="detail-tag">品牌 ${record.brand_influence_score >= 10 ? '全国连锁' : record.brand_influence_score >= 5 ? '区域连锁' : '无连锁'}</span>
+                        <span class="detail-tag">动线 ${record.traffic_flow_score === null || record.traffic_flow_score === undefined ? '无' : record.traffic_flow_score >= 20 ? '非常好' : record.traffic_flow_score >= 10 ? '较好' : '一般'}</span>
                     </div>
                     <div class="history-item-details" style="margin-top:2px">
                         <span class="detail-tag">${competitionSummary || '查看详情'}</span>
